@@ -92,6 +92,11 @@ cmd_import() {
         FILE_NAME="$VOLUME_NAME.tar.gz"
     fi
 
+    if [ ! -r "$FILE_NAME" ]; then
+        echo "Error: Could not find or open '$FILE_NAME'"
+        exit 1
+    fi
+
     if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME";
     then
         echo "Error: Volume $VOLUME_NAME does not exist"
