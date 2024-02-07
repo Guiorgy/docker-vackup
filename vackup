@@ -74,7 +74,7 @@ cmd_export() {
         exit 1
     fi
 
-    echo "Successfully tar'ed volume $VOLUME_NAME into file $FILE_NAME"
+    echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
 }
 
 cmd_import() {
@@ -118,7 +118,7 @@ cmd_import() {
         exit 1
     fi
 
-    echo "Successfully unpacked $FILE_NAME into volume $VOLUME_NAME"
+    echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
 }
 
 COMMAND="$1"
