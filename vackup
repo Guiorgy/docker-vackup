@@ -92,6 +92,8 @@ command_export() {
     -*)
       if [ "$1" == '-f' ] || [ "$1" == '--force' ]; then
         OVERWRITE=1
+      else
+        error usage "'$1' is not a recognized export option"
       fi
 
       shift
