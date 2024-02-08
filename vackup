@@ -77,8 +77,8 @@ fulldirname() {
   DIRECTORY=$(dirname "$1")
 
   case "$DIRECTORY" in
-    \/*) ;;
-    \.*) ;& # fallthrough
+    /*) ;;
+    .*) ;& # fallthrough
     *) DIRECTORY="$(pwd)/$DIRECTORY" ;;
   esac
   DIRECTORY=$(readlink -m "$DIRECTORY")
@@ -89,7 +89,7 @@ fulldirname() {
 command_export() {
   OVERWRITE=0
   case $1 in
-    \-*)
+    -*)
       if [ "$1" == '-f' ] || [ "$1" == '--force' ]; then
         OVERWRITE=1
       fi
