@@ -88,17 +88,24 @@ fulldirname() {
 
 command_export() {
   OVERWRITE=0
-  case $1 in
-    -*)
-      if [ "$1" == '-f' ] || [ "$1" == '--force' ]; then
-        OVERWRITE=1
-      else
-        error usage "'$1' is not a recognized export option"
-      fi
+  STOP=0
 
-      shift
-    ;;
-  esac
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        case "$1" in
+          -f) ;& # fallthrough
+          --force) OVERWRITE=1 ;;
+          -s) ;& # fallthrough
+          --stop) STOP=1 ;;
+          *) error usage "'$1' is not a recognized export option" ;;
+        esac
+
+        shift
+      ;;
+      *) break ;;
+    esac
+  done
 
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
@@ -120,21 +127,56 @@ command_export() {
     error "Volume $VOLUME_NAME does not exist"
   fi
 
+  if [ $STOP -eq 1 ]; then
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME")
+  else
+    CONTAINERS=''
+  fi
+
   DIRECTORY=$(fulldirname "$FILE_NAME")
   FILE_NAME=$(basename "$FILE_NAME")
+
+  if [ -n "$CONTAINERS" ]; then
+    docker stop $CONTAINERS
+  fi
 
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
     -v "$DIRECTORY":/vackup \
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
+    if [ -n "$CONTAINERS" ]; then
+      docker restart $CONTAINERS
+    fi
+
     error 'Failed to start busybox backup container'
+  fi
+
+  if [ -n "$CONTAINERS" ]; then
+    docker restart $CONTAINERS
   fi
 
   echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
 }
 
 command_import() {
+  STOP=0
+
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        case "$1" in
+          -s) ;& # fallthrough
+          --stop) STOP=1 ;;
+          *) error usage "'$1' is not a recognized import option" ;;
+        esac
+
+        shift
+      ;;
+      *) break ;;
+    esac
+  done
+
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
     2) FILE_NAME="$1"; VOLUME_NAME="$2" ;;
@@ -150,15 +192,33 @@ command_import() {
     docker volume create "$VOLUME_NAME"
   fi
 
+  if [ $STOP -eq 1 ]; then
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME")
+  else
+    CONTAINERS=''
+  fi
+
   DIRECTORY=$(fulldirname "$FILE_NAME")
   FILE_NAME=$(basename "$FILE_NAME")
+
+  if [ -n "$CONTAINERS" ]; then
+    docker stop $CONTAINERS
+  fi
 
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
     -v "$DIRECTORY":/vackup \
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
-    error 'Failed to start busybox container'
+    if [ -n "$CONTAINERS" ]; then
+      docker restart $CONTAINERS
+    fi
+
+    error 'Failed to start busybox backup container'
+  fi
+
+  if [ -n "$CONTAINERS" ]; then
+    docker restart $CONTAINERS
   fi
 
   echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
