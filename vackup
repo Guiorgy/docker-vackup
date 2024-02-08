@@ -73,6 +73,19 @@ error() {
   handle_error $LINE_NUMBER $CODE
 }
 
+fulldirname() {
+  DIRECTORY=$(dirname "$1")
+
+  case "$DIRECTORY" in
+    \/*) ;;
+    \.*) ;& # fallthrough
+    *) DIRECTORY="$(pwd)/$DIRECTORY" ;;
+  esac
+  DIRECTORY=$(readlink -m "$DIRECTORY")
+
+  echo "$DIRECTORY"
+}
+
 command_export() {
   OVERWRITE=0
   case $1 in
@@ -105,12 +118,12 @@ command_export() {
     error "Volume $VOLUME_NAME does not exist"
   fi
 
-# TODO: if FILE_NAME starts with / we need to error out
-# unless we can translate full file paths
+  DIRECTORY=$(fulldirname "$FILE_NAME")
+  FILE_NAME=$(basename "$FILE_NAME")
 
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
-    -v "$(pwd)":/vackup \
+    -v "$DIRECTORY":/vackup \
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
     error 'Failed to start busybox backup container'
@@ -135,12 +148,12 @@ command_import() {
     docker volume create "$VOLUME_NAME"
   fi
 
-# TODO: if FILE_NAME starts with / we need to error out
-# unless we can translate full file paths
+  DIRECTORY=$(fulldirname "$FILE_NAME")
+  FILE_NAME=$(basename "$FILE_NAME")
 
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
-    -v "$(pwd)":/vackup \
+    -v "$DIRECTORY":/vackup \
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
     error 'Failed to start busybox container'
