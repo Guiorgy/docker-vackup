@@ -6,11 +6,17 @@
 set -Eeo pipefail
 
 handle_error() {
-  exit_code=$?
+  case $# in
+    1) LINE_NUMBER=$1; EXIT_CODE=$? ;;
+    2) LINE_NUMBER=$1; EXIT_CODE=$2 ;;
+    *) LINE_NUMBER=$LINENO; EXIT_CODE=1 ;;
+  esac
+
   if [ -n "${VACKUP_FAILURE_SCRIPT}" ]; then
-    /bin/bash "${VACKUP_FAILURE_SCRIPT}" "$1" $exit_code
+    /bin/bash "${VACKUP_FAILURE_SCRIPT}" "$LINE_NUMBER" $EXIT_CODE
   fi
-  exit $exit_code
+
+  exit $EXIT_CODE
 }
 
 trap 'handle_error $LINENO' ERR
@@ -60,10 +66,11 @@ error() {
   fi
 
   if [ -z "$CODE" ]; then
-    exit 1
-  else
-    exit "$CODE"
+    CODE=1
   fi
+
+  LINE_NUMBER=$(caller | awk '{ print $1 }')
+  handle_error $LINE_NUMBER $CODE
 }
 
 command_export() {
