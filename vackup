@@ -35,18 +35,11 @@ EOF
 }
 
 cmd_export() {
-  VOLUME_NAME="$2"
-  FILE_NAME="$3"
-
-  if [ -z "$VOLUME_NAME" ]; then
-    echo "Error: Not enough arguments"
-    usage
-    exit 1
-  fi
-
-  if [ -z "$FILE_NAME" ]; then
-    FILE_NAME="$VOLUME_NAME.tar.gz"
-  fi
+  case $# in
+    1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
+    2) VOLUME_NAME="$1"; FILE_NAME="$2" ;;
+    *) echo "Error: Wrong number of arguments"; usage; exit 1 ;;
+  esac
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
     echo "Error: Volume $VOLUME_NAME does not exist"
@@ -71,19 +64,11 @@ cmd_export() {
 }
 
 cmd_import() {
-  FILE_NAME="$2"
-  VOLUME_NAME="$3"
-
-  if [ -z "$FILE_NAME" ]; then
-    echo "Error: Not enough arguments"
-    usage
-    exit 1
-  fi
-
-  if [ -z "$VOLUME_NAME" ]; then
-    VOLUME_NAME="$FILE_NAME"
-    FILE_NAME="$VOLUME_NAME.tar.gz"
-  fi
+  case $# in
+    1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
+    2) FILE_NAME="$1"; VOLUME_NAME="$2" ;;
+    *) echo "Error: Wrong number of arguments"; usage; exit 1 ;;
+  esac
 
   if [ ! -r "$FILE_NAME" ]; then
     echo "Error: Could not find or open '$FILE_NAME'"
@@ -118,12 +103,13 @@ if [ $# -eq 0 ]; then
 fi
 
 COMMAND="$1"
+ARGS="${@:2}"
 case "$COMMAND" in
   -h) ;& # fallthrough
   --help) ;& # fallthrough
   help) usage; exit 0 ;;
-  export) cmd_export "$@" ;;
-  import) cmd_import "$@" ;;
+  export) cmd_export $ARGS ;;
+  import) cmd_import $ARGS ;;
   *) echo "Error: '$COMMAND' is not a recognized command"; usage; exit 1 ;;
 esac
 
