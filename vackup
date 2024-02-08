@@ -74,6 +74,17 @@ error() {
 }
 
 command_export() {
+  OVERWRITE=0
+  case $1 in
+    \-*)
+      if [ "$1" == '-f' ] || [ "$1" == '--force' ]; then
+        OVERWRITE=1
+      fi
+
+      shift
+    ;;
+  esac
+
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
     2) VOLUME_NAME="$1"; FILE_NAME="$2" ;;
@@ -81,7 +92,13 @@ command_export() {
   esac
 
   if [ -f "$FILE_NAME" ]; then
-    error "File '$FILE_NAME' already exists"
+    if [ $OVERWRITE -eq 1 ]; then
+      if [ ! -w "$FILE_NAME" ]; then
+        error "Unable to write to '$FILE_NAME'"
+      fi
+    else
+      error "File '$FILE_NAME' already exists"
+    fi
   fi
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
