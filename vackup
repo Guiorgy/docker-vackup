@@ -34,11 +34,6 @@ vackup import FILE VOLUME
 EOF
 }
 
-if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
-  usage
-  exit 0
-fi
-
 cmd_export() {
   VOLUME_NAME="$2"
   FILE_NAME="$3"
@@ -117,8 +112,16 @@ cmd_import() {
   echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
 }
 
+if [ $# -eq 0 ]; then
+  usage
+  exit 0
+fi
+
 COMMAND="$1"
 case "$COMMAND" in
+  -h) ;& # fallthrough
+  --help) ;& # fallthrough
+  help) usage; exit 0 ;;
   export) cmd_export "$@" ;;
   import) cmd_import "$@" ;;
   *) echo "Error: '$COMMAND' is not a recognized command"; usage; exit 1 ;;
