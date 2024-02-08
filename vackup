@@ -96,7 +96,7 @@ cmd_import() {
   fi
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
-    echo "Error: Volume $VOLUME_NAME does not exist"
+    echo "Warning: Volume $VOLUME_NAME does not exist"
     docker volume create "$VOLUME_NAME"
   fi
 
