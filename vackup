@@ -35,90 +35,90 @@ EOF
 }
 
 if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
-    usage
-    exit 0
+  usage
+  exit 0
 fi
 
 cmd_export() {
-    VOLUME_NAME="$2"
-    FILE_NAME="$3"
+  VOLUME_NAME="$2"
+  FILE_NAME="$3"
 
-    if [ -z "$VOLUME_NAME" ]; then
-        echo "Error: Not enough arguments"
-        usage
-        exit 1
-    fi
+  if [ -z "$VOLUME_NAME" ]; then
+    echo "Error: Not enough arguments"
+    usage
+    exit 1
+  fi
 
-    if [ -z "$FILE_NAME" ]; then
-        FILE_NAME="$VOLUME_NAME.tar.gz"
-    fi
+  if [ -z "$FILE_NAME" ]; then
+    FILE_NAME="$VOLUME_NAME.tar.gz"
+  fi
 
-    if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME";
-    then
-        echo "Error: Volume $VOLUME_NAME does not exist"
-        exit 1
-    fi
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME";
+  then
+    echo "Error: Volume $VOLUME_NAME does not exist"
+    exit 1
+  fi
 
 # TODO: check if file exists on host, if it does
 # create a option for overwrite and check if that's set
 # TODO: if FILE_NAME starts with / we need to error out
 # unless we can translate full file paths
 
-    if ! docker run --rm \
-      -v "$VOLUME_NAME":/vackup-volume \
-      -v "$(pwd)":/vackup \
-      busybox \
-      tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .;
-    then
-        echo "Error: Failed to start busybox backup container"
-        exit 1
-    fi
+  if ! docker run --rm \
+    -v "$VOLUME_NAME":/vackup-volume \
+    -v "$(pwd)":/vackup \
+    busybox \
+    tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .;
+  then
+    echo "Error: Failed to start busybox backup container"
+    exit 1
+  fi
 
-    echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
+  echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
 }
 
 cmd_import() {
-    FILE_NAME="$2"
-    VOLUME_NAME="$3"
+  FILE_NAME="$2"
+  VOLUME_NAME="$3"
 
-    if [ -z "$FILE_NAME" ]; then
-        echo "Error: Not enough arguments"
-        usage
-        exit 1
-    fi
+  if [ -z "$FILE_NAME" ]; then
+    echo "Error: Not enough arguments"
+    usage
+    exit 1
+  fi
 
-    if [ -z "$VOLUME_NAME" ]; then
-        VOLUME_NAME="$FILE_NAME"
-        FILE_NAME="$VOLUME_NAME.tar.gz"
-    fi
+  if [ -z "$VOLUME_NAME" ]; then
+    VOLUME_NAME="$FILE_NAME"
+    FILE_NAME="$VOLUME_NAME.tar.gz"
+  fi
 
-    if [ ! -r "$FILE_NAME" ]; then
-        echo "Error: Could not find or open '$FILE_NAME'"
-        exit 1
-    fi
+  if [ ! -r "$FILE_NAME" ]; then
+    echo "Error: Could not find or open '$FILE_NAME'"
+    exit 1
+  fi
 
-    if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME";
-    then
-        echo "Error: Volume $VOLUME_NAME does not exist"
-        docker volume create "$VOLUME_NAME"
-    fi
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME";
+  then
+    echo "Error: Volume $VOLUME_NAME does not exist"
+    docker volume create "$VOLUME_NAME"
+  fi
 
 # TODO: check if file exists on host, if it does
 # create a option for overwrite and check if that's set
 # TODO: if FILE_NAME starts with / we need to error out
 # unless we can translate full file paths
 
-    if ! docker run --rm \
-      -v "$VOLUME_NAME":/vackup-volume \
-      -v "$(pwd)":/vackup \
-      busybox \
-      tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume;
-    then
-        echo "Error: Failed to start busybox container"
-        exit 1
-    fi
+  if ! docker run --rm \
+    -v "$VOLUME_NAME":/vackup-volume \
+    -v "$(pwd)":/vackup \
+    busybox \
+    tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume;
+  then
+    echo "Error: Failed to start busybox container"
+    exit 1
+  fi
 
-    echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
+  echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
 }
 
 COMMAND="$1"
