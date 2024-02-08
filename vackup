@@ -15,7 +15,7 @@ handle_error() {
 
 trap 'handle_error $LINENO' ERR
 
-usage() {
+print_usage() {
 cat <<EOF
 
 "Docker Volume Backup". Replicates image management commands for volumes.
@@ -32,18 +32,49 @@ vackup import FILE VOLUME
   Extracts a gzip'ed tarball into a volume
 
 EOF
+
+  if [ $# -ne 0 ]; then
+    exit $1
+  fi
 }
 
-cmd_export() {
+error() {
+  if [ "$1" == 'u' ] || [ "$1" == 'usage' ]; then
+    USAGE=1
+    MESSAGE=$2
+    CODE=$3
+  else
+    USAGE=0
+    MESSAGE=$1
+    CODE=$2
+  fi
+
+  if [ -z "$MESSAGE" ]; then
+    echo 'Error'
+  else
+    echo "Error: $MESSAGE"
+  fi
+
+  if [ $USAGE -eq 1 ]; then
+    print_usage
+  fi
+
+  if [ -z "$CODE" ]; then
+    exit 1
+  else
+    exit "$CODE"
+  fi
+}
+
+command_export() {
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
     2) VOLUME_NAME="$1"; FILE_NAME="$2" ;;
-    *) echo "Error: Wrong number of arguments"; usage; exit 1 ;;
+    *) error usage 'Wrong number of arguments' ;;
   esac
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
-    echo "Error: Volume $VOLUME_NAME does not exist"
-    exit 1
+    error "Volume $VOLUME_NAME does not exist"
   fi
 
 # TODO: check if file exists on host, if it does
@@ -56,23 +87,21 @@ cmd_export() {
     -v "$(pwd)":/vackup \
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
-    echo "Error: Failed to start busybox backup container"
-    exit 1
+    error 'Failed to start busybox backup container'
   fi
 
   echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
 }
 
-cmd_import() {
+command_import() {
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
     2) FILE_NAME="$1"; VOLUME_NAME="$2" ;;
-    *) echo "Error: Wrong number of arguments"; usage; exit 1 ;;
+    *) error usage 'Wrong number of arguments' ;;
   esac
 
   if [ ! -r "$FILE_NAME" ]; then
-    echo "Error: Could not find or open '$FILE_NAME'"
-    exit 1
+    error "Could not find or open '$FILE_NAME'"
   fi
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
@@ -90,16 +119,14 @@ cmd_import() {
     -v "$(pwd)":/vackup \
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
-    echo "Error: Failed to start busybox container"
-    exit 1
+    error 'Failed to start busybox container'
   fi
 
   echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
 }
 
 if [ $# -eq 0 ]; then
-  usage
-  exit 0
+  print_usage 0
 fi
 
 COMMAND="$1"
@@ -107,10 +134,10 @@ ARGS="${@:2}"
 case "$COMMAND" in
   -h) ;& # fallthrough
   --help) ;& # fallthrough
-  help) usage; exit 0 ;;
-  export) cmd_export $ARGS ;;
-  import) cmd_import $ARGS ;;
-  *) echo "Error: '$COMMAND' is not a recognized command"; usage; exit 1 ;;
+  help) print_usage 0 ;;
+  export) command_export $ARGS ;;
+  import) command_import $ARGS ;;
+  *) error usage "'$COMMAND' is not a recognized command" ;;
 esac
 
 exit 0
