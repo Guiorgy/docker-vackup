@@ -121,7 +121,7 @@ COMMAND="$1"
 case "$COMMAND" in
   export) cmd_export "$@" ;;
   import) cmd_import "$@" ;;
-  *) echo "Error: '$COMMAND' is not a recognized command" ; usage ;;
+  *) echo "Error: '$COMMAND' is not a recognized command"; usage; exit 1 ;;
 esac
 
 exit 0
