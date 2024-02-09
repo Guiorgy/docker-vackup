@@ -135,6 +135,10 @@ command_export() {
   DIRECTORY=$(fulldirname "$FILE_NAME")
   FILE_NAME=$(basename "$FILE_NAME")
 
+  if [ ! -w "$DIRECTORY" ]; then
+    error "Unable to write to '$DIRECTORY'"
+  fi
+
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
     error "Volume $VOLUME_NAME does not exist"
   fi
