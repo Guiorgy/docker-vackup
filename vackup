@@ -180,7 +180,7 @@ command_export() {
     error "Unable to write to '$DIRECTORY'"
   fi
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" &> /dev/null; then
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
     error "Volume $VOLUME_NAME does not exist"
   fi
 
@@ -257,7 +257,7 @@ command_import() {
   DIRECTORY=$(fulldirname "$FILE_NAME")
   FILE_NAME=$(basename "$FILE_NAME")
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" &> /dev/null; then
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
     warning "Volume $VOLUME_NAME does not exist, creating..."
     docker volume create "$VOLUME_NAME" 1> /dev/null
   fi
