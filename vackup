@@ -159,15 +159,18 @@ command_export() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
+    echo "Stopping containers: $CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
 
+  echo "Exporting volume: $VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
     -v "$DIRECTORY":/vackup \
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
     if [ -n "$CONTAINERS" ]; then
+      echo "Restarting containers: $CONTAINERS"
       docker restart $CONTAINERS 1> /dev/null
     fi
 
@@ -175,6 +178,7 @@ command_export() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
+    echo "Restarting containers: $CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null
   fi
 
@@ -233,15 +237,18 @@ command_import() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
+    echo "Stopping containers: $CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
 
+  echo "Importing volume: $VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
     -v "$DIRECTORY":/vackup \
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
     if [ -n "$CONTAINERS" ]; then
+      echo "Restarting containers: $CONTAINERS"
       docker restart $CONTAINERS 1> /dev/null
     fi
 
@@ -249,6 +256,7 @@ command_import() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
+    echo "Restarting containers: $CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null
   fi
 
