@@ -341,6 +341,32 @@ command_import() {
   echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
 }
 
+command_all_export() {
+  error 'Not implemented'
+}
+
+command_all_import() {
+  error 'Not implemented'
+}
+
+command_all() {
+  if [ $# -eq 0 ]; then
+    print_usage --exit
+  fi
+
+  COMMAND="$1"
+  shift
+  case "$COMMAND" in
+    -h) print_usage --exit ;;
+    --help) print_usage --exit ;;
+    help) print_usage --exit ;;
+    export) command_all_export "$@" ;;
+    import) command_all_import "$@" ;;
+    all) error usage "'$COMMAND' is not a recognized command" ;;
+    *) error usage "'$COMMAND' is not a recognized command" ;;
+  esac
+}
+
 exec 3>&1
 
 parse_command() {
@@ -358,6 +384,7 @@ parse_command() {
     --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
     export) command_export "$@" ;;
     import) command_import "$@" ;;
+    all) command_all "$@" ;;
     *) error usage "'$COMMAND' is not a recognized command" ;;
   esac
 }
