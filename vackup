@@ -148,7 +148,7 @@ command_export() {
     error "Unable to write to '$DIRECTORY'"
   fi
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" &> /dev/null; then
     error "Volume $VOLUME_NAME does not exist"
   fi
 
@@ -159,7 +159,7 @@ command_export() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    docker stop $CONTAINERS
+    docker stop $CONTAINERS 1> /dev/null
   fi
 
   if ! docker run --rm \
@@ -168,14 +168,14 @@ command_export() {
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
     if [ -n "$CONTAINERS" ]; then
-      docker restart $CONTAINERS
+      docker restart $CONTAINERS 1> /dev/null
     fi
 
     error 'Failed to start busybox backup container'
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    docker restart $CONTAINERS
+    docker restart $CONTAINERS 1> /dev/null
   fi
 
   echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
@@ -221,9 +221,9 @@ command_import() {
   DIRECTORY=$(fulldirname "$FILE_NAME")
   FILE_NAME=$(basename "$FILE_NAME")
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" &> /dev/null; then
     echo "Warning: Volume $VOLUME_NAME does not exist, creating..."
-    docker volume create "$VOLUME_NAME"
+    docker volume create "$VOLUME_NAME" 1> /dev/null
   fi
 
   if [ $STOP -eq 1 ]; then
@@ -233,7 +233,7 @@ command_import() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    docker stop $CONTAINERS
+    docker stop $CONTAINERS 1> /dev/null
   fi
 
   if ! docker run --rm \
@@ -242,14 +242,14 @@ command_import() {
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
     if [ -n "$CONTAINERS" ]; then
-      docker restart $CONTAINERS
+      docker restart $CONTAINERS 1> /dev/null
     fi
 
     error 'Failed to start busybox backup container'
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    docker restart $CONTAINERS
+    docker restart $CONTAINERS 1> /dev/null
   fi
 
   echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
