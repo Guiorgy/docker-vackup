@@ -169,6 +169,8 @@ command_export() {
     case "$1" in
       -*)
         case "$1" in
+          -h) print_usage --exit ;;
+          --help) print_usage --exit ;;
           -p) PARENTS=1 ;;
           --parents) PARENTS=1 ;;
           -f) OVERWRITE=1 ;;
@@ -266,6 +268,8 @@ command_import() {
     case "$1" in
       -*)
         case "$1" in
+          -h) print_usage --exit ;;
+          --help) print_usage --exit ;;
           -s) STOP=1 ;;
           --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized import option" ;;
