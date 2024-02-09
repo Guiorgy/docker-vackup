@@ -113,6 +113,15 @@ command_export() {
     *) error usage 'Wrong number of arguments' ;;
   esac
 
+  case "$FILE_NAME" in
+    */) FILE_NAME="$FILE_NAME$VOLUME_NAME.tar.gz" ;;
+    *)
+      if [ -d "$FILE_NAME" ]; then
+        FILE_NAME="$FILE_NAME/$VOLUME_NAME.tar.gz"
+      fi
+    ;;
+  esac
+
   if [ -f "$FILE_NAME" ]; then
     if [ $OVERWRITE -eq 1 ]; then
       if [ ! -w "$FILE_NAME" ]; then
@@ -123,6 +132,9 @@ command_export() {
     fi
   fi
 
+  DIRECTORY=$(fulldirname "$FILE_NAME")
+  FILE_NAME=$(basename "$FILE_NAME")
+
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
     error "Volume $VOLUME_NAME does not exist"
   fi
@@ -132,9 +144,6 @@ command_export() {
   else
     CONTAINERS=''
   fi
-
-  DIRECTORY=$(fulldirname "$FILE_NAME")
-  FILE_NAME=$(basename "$FILE_NAME")
 
   if [ -n "$CONTAINERS" ]; then
     docker stop $CONTAINERS
@@ -183,9 +192,21 @@ command_import() {
     *) error usage 'Wrong number of arguments' ;;
   esac
 
+  case "$FILE_NAME" in
+    */) FILE_NAME="$FILE_NAME$VOLUME_NAME.tar.gz" ;;
+    *)
+      if [ -d "$FILE_NAME" ]; then
+        FILE_NAME="$FILE_NAME/$VOLUME_NAME.tar.gz"
+      fi
+    ;;
+  esac
+
   if [ ! -r "$FILE_NAME" ]; then
     error "Could not find or open '$FILE_NAME'"
   fi
+
+  DIRECTORY=$(fulldirname "$FILE_NAME")
+  FILE_NAME=$(basename "$FILE_NAME")
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME"; then
     echo "Warning: Volume $VOLUME_NAME does not exist, creating..."
@@ -197,9 +218,6 @@ command_import() {
   else
     CONTAINERS=''
   fi
-
-  DIRECTORY=$(fulldirname "$FILE_NAME")
-  FILE_NAME=$(basename "$FILE_NAME")
 
   if [ -n "$CONTAINERS" ]; then
     docker stop $CONTAINERS
