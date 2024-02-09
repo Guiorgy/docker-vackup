@@ -3,7 +3,7 @@
 # Easily tar up a volume on a local (or remote) engine
 # Inspired by CLIP from Lukasz Lach
 
-set -Eeo pipefail
+set -Eeuo pipefail
 
 handle_error() {
   case $# in
