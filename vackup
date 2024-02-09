@@ -7,6 +7,12 @@ if [ -z "$LINENO" ]; then
   LINENO='unknown'
 fi
 
+if command -v caller 1> /dev/null 2>&1; then
+  CALLER=1
+else
+  CALLER=0
+fi
+
 if [ -z "$BASH" ]; then
   BASH=''
 fi
@@ -65,9 +71,11 @@ EOF
   if [ $# -ne 0 ]; then
     if [ "$1" = '0' ]; then
       exit 0
-    else
+    elif [ $CALLER -eq 1 ]; then
       LINE_NUMBER=$(caller | awk '{ print $1 }')
       handle_error $LINE_NUMBER $1
+    else
+      exit $1
     fi
   fi
 }
@@ -97,8 +105,12 @@ error() {
     CODE=1
   fi
 
-  LINE_NUMBER=$(caller | awk '{ print $1 }')
-  handle_error $LINE_NUMBER $CODE
+  if [ $CALLER -eq 1 ]; then
+    LINE_NUMBER=$(caller | awk '{ print $1 }')
+    handle_error $LINE_NUMBER $CODE
+  else
+    exit $CODE
+  fi
 }
 
 warning() {
