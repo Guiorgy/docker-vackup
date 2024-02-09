@@ -241,7 +241,7 @@ command_export() {
 
   echo "Exporting volume: $VOLUME_NAME"
   if ! docker run --rm \
-    -v "$VOLUME_NAME":/vackup-volume \
+    -v "$VOLUME_NAME":/vackup-volume:ro \
     -v "$DIRECTORY":/vackup \
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
@@ -322,7 +322,7 @@ command_import() {
   echo "Importing volume: $VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
-    -v "$DIRECTORY":/vackup \
+    -v "$DIRECTORY/$FILE_NAME":"/vackup/$FILE_NAME":ro \
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
     if [ -n "$CONTAINERS" ]; then
