@@ -44,6 +44,18 @@ else
 fi
 
 print_usage() {
+  STDERR=0
+  EXIT=0
+
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      --err) STDERR=1 ;;
+      --exit) EXIT=1 ;;
+    esac
+
+    shift
+  done
+
   TEXT=$(cat <<EOF
 
 "Docker Volume Backup". Replicates image management commands for volumes.
@@ -62,20 +74,22 @@ vackup import FILE VOLUME
 EOF
   )
 
-  case $1 in
-    -e) echo 1>&2 "$TEXT"; shift ;;
-    --err) echo 1>&2 "$TEXT"; shift ;;
-    *) echo 1>&3 "$TEXT" ;;
-  esac
+  if [ $STDERR -eq 1 ]; then
+    echo 1>&2 "$TEXT"
+  else
+    echo 1>&3 "$TEXT"
+  fi
 
-  if [ $# -ne 0 ]; then
-    if [ "$1" = '0' ]; then
-      exit 0
-    elif [ $CALLER -eq 1 ]; then
-      LINE_NUMBER=$(caller | awk '{ print $1 }')
-      handle_error $LINE_NUMBER $1
+  if [ $EXIT -eq 1 ]; then
+    if [ $STDERR -eq 1 ]; then
+      if [ $CALLER -eq 1 ]; then
+        LINE_NUMBER=$(caller | awk '{ print $1 }')
+        handle_error $LINE_NUMBER 1
+      else
+        exit 1
+      fi
     else
-      exit $1
+      exit 0
     fi
   fi
 }
@@ -327,15 +341,15 @@ exec 3>&1
 
 parse_command() {
   if [ $# -eq 0 ]; then
-    print_usage 0
+    print_usage --exit
   fi
 
   COMMAND="$1"
   shift
   case "$COMMAND" in
-    -h) print_usage 0 ;;
-    --help) print_usage 0 ;;
-    help) print_usage 0 ;;
+    -h) print_usage --exit ;;
+    --help) print_usage --exit ;;
+    help) print_usage --exit ;;
     -q) exec 3>&1 1>/dev/null; parse_command "$@" ;;
     --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
     export) command_export "$@" ;;
