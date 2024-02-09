@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Docker Volume File Backup and Restore Tool
 # Easily tar up a volume on a local (or remote) engine
 # Inspired by CLIP from Lukasz Lach
@@ -25,7 +25,7 @@ handle_error() {
   esac
 
   if [ -n "${VACKUP_FAILURE_SCRIPT}" ]; then
-    /bin/bash "${VACKUP_FAILURE_SCRIPT}" "$LINE_NUMBER" $EXIT_CODE
+    /usr/bin/env bash "${VACKUP_FAILURE_SCRIPT}" "$LINE_NUMBER" $EXIT_CODE
   fi
 
   exit $EXIT_CODE
