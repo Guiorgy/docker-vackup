@@ -303,15 +303,15 @@ parse_command() {
   fi
 
   COMMAND="$1"
-  ARGS="${@:2}"
+  shift
   case "$COMMAND" in
     -h) ;& # fallthrough
     --help) ;& # fallthrough
     help) print_usage 0 ;;
     -q) ;& #fallthrough
-    --quiet) exec 3>&1 1>/dev/null; parse_command $ARGS ;;
-    export) command_export $ARGS ;;
-    import) command_import $ARGS ;;
+    --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
+    export) command_export "$@" ;;
+    import) command_import "$@" ;;
     *) error usage "'$COMMAND' is not a recognized command" ;;
   esac
 }
