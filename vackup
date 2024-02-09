@@ -342,7 +342,77 @@ command_import() {
 }
 
 command_all_export() {
-  error 'Not implemented'
+  ARGS=''
+  STOP=0
+
+  while [ $# -ne 1 ]; do
+    case "$1" in
+      -*)
+        case "$1" in
+          -h) print_usage --exit ;;
+          --help) print_usage --exit ;;
+          -p) ARGS="$ARGS -p" ;;
+          --parents) ARGS="$ARGS --parents" ;;
+          -f) ARGS="$ARGS -f" ;;
+          --force) ARGS="$ARGS --force" ;;
+          -s) STOP=1 ;;
+          --stop) STOP=1 ;;
+          *) error usage "'$1' is not a recognized export option" ;;
+        esac
+
+        shift
+      ;;
+      *) break ;;
+    esac
+  done
+
+  case $# in
+    1) DIRECTORY="$1" ;;
+    *) error usage 'Wrong number of arguments' ;;
+  esac
+
+  case "$DIRECTORY" in
+    */) ;;
+    *)
+      if [ -f "$DIRECTORY" ]; then
+        error "'$DIRECTORY' is a file"
+      fi
+
+      DIRECTORY="$DIRECTORY/"
+    ;;
+  esac
+
+  if [ $STOP -eq 1 ]; then
+    CONTAINERS=$(docker ps -q)
+  else
+    CONTAINERS=''
+  fi
+
+  if [ -n "$CONTAINERS" ]; then
+    echo "Stopping containers: $CONTAINERS"
+    docker stop $CONTAINERS 1> /dev/null
+  fi
+
+  VOLUME_NAMES=$(docker volume ls -q)
+
+  FAILED=''
+  for VOLUME_NAME in $VOLUME_NAMES; do
+    if ! (command_export $ARGS "$VOLUME_NAME" "$DIRECTORY"); then
+      FAILED="$VOLUME_NAME"
+      break
+    fi
+  done
+
+  if [ -n "$CONTAINERS" ]; then
+    echo "Restarting containers: $CONTAINERS"
+    docker restart $CONTAINERS 1> /dev/null
+  fi
+
+  if [ -n "$FAILED" ]; then
+    error "Failed during $FAILED volume export"
+  fi
+
+  echo "Successfully tar'ed volumes [$VOLUME_NAMES] into archive files"
 }
 
 command_all_import() {
