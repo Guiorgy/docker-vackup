@@ -47,7 +47,12 @@ EOF
   esac
 
   if [ $# -ne 0 ]; then
-    exit $1
+    if [ "$1" == '0' ]; then
+      exit 0
+    else
+      LINE_NUMBER=$(caller | awk '{ print $1 }')
+      handle_error $LINE_NUMBER $1
+    fi
   fi
 }
 
