@@ -87,6 +87,7 @@ fulldirname() {
 }
 
 command_export() {
+  PARENTS=0
   OVERWRITE=0
   STOP=0
 
@@ -94,6 +95,8 @@ command_export() {
     case "$1" in
       -*)
         case "$1" in
+          -p) ;& # fallthrough
+          --parents) PARENTS=1 ;;
           -f) ;& # fallthrough
           --force) OVERWRITE=1 ;;
           -s) ;& # fallthrough
@@ -134,6 +137,12 @@ command_export() {
 
   DIRECTORY=$(fulldirname "$FILE_NAME")
   FILE_NAME=$(basename "$FILE_NAME")
+
+  if [ $PARENTS -eq 1 ]; then
+    if ! mkdir -p "$DIRECTORY"; then
+      error "Failed to make parent directories for '$DIRECTORY/$FILE_NAME'"
+    fi
+  fi
 
   if [ ! -w "$DIRECTORY" ]; then
     error "Unable to write to '$DIRECTORY'"
