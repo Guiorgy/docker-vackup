@@ -3,7 +3,19 @@
 # Easily tar up a volume on a local (or remote) engine
 # Inspired by CLIP from Lukasz Lach
 
-set -Eeuo pipefail
+if [ -z "$LINENO" ]; then
+  LINENO='unknown'
+fi
+
+if [ -z "$BASH" ]; then
+  BASH=''
+fi
+
+if [ -n "$BASH" ]; then
+  set -Eeuo pipefail
+else
+  set -eu
+fi
 
 handle_error() {
   case $# in
@@ -19,7 +31,11 @@ handle_error() {
   exit $EXIT_CODE
 }
 
-trap 'handle_error $LINENO' ERR
+if [ -n "$BASH" ]; then
+  trap 'handle_error $LINENO' ERR
+else
+  trap 'handle_error $LINENO $?' EXIT
+fi
 
 print_usage() {
   TEXT=$(cat <<EOF
