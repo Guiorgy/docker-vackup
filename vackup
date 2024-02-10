@@ -377,12 +377,17 @@ command_export() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
+  TAR_OPTIONS='-zcf'
+  if [ $VERBOSE -eq 1 ]; then
+    TAR_OPTIONS="${TAR_OPTIONS}v"
+  fi
+
   information 'Exporting volume' "$VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume:ro \
     -v "$DIRECTORY":/vackup \
     busybox \
-    tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
+    tar $TAR_OPTIONS /vackup/"$FILE_NAME" -C /vackup-volume .; then
     if [ -n "$CONTAINERS" ]; then
       information 'Restarting containers' "$CONTAINERS"
       docker restart $CONTAINERS 1> /dev/null
@@ -457,12 +462,17 @@ command_import() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
+  TAR_OPTIONS='-xzf'
+  if [ $VERBOSE -eq 1 ]; then
+    TAR_OPTIONS="${TAR_OPTIONS}v"
+  fi
+
   information 'Importing volume' "$VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
     -v "$DIRECTORY/$FILE_NAME":"/vackup/$FILE_NAME":ro \
     busybox \
-    tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
+    tar $TAR_OPTIONS /vackup/"$FILE_NAME" -C /vackup-volume; then
     if [ -n "$CONTAINERS" ]; then
       information 'Restarting containers' "$CONTAINERS"
       docker restart $CONTAINERS 1> /dev/null
@@ -677,6 +687,7 @@ command_all() {
 }
 
 exec 3>&1
+VERBOSE=0
 
 parse_command() {
   if [ $# -eq 0 ]; then
@@ -691,6 +702,8 @@ parse_command() {
     help) print_usage --exit ;;
     -q) exec 3>&1 1>/dev/null; parse_command "$@" ;;
     --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
+    -v) VERBOSE=1 ; parse_command "$@" ;;
+    --verbose) VERBOSE=1 ; parse_command "$@" ;;
     export) command_export "$@" ;;
     import) command_import "$@" ;;
     all) command_all "$@" ;;
