@@ -447,7 +447,7 @@ command_all_import() {
           --help) print_usage --exit ;;
           -s) STOP=1 ;;
           --stop) STOP=1 ;;
-          *) error usage "'$1' is not a recognized export option" ;;
+          *) error usage "'$1' is not a recognized import option" ;;
         esac
 
         shift
