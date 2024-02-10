@@ -363,7 +363,7 @@ command_import() {
 
 command_all_export() {
   ARGS=''
-  USED=0
+  INUSE=0
   STOP=0
 
   while [ $# -ne 1 ]; do
@@ -376,8 +376,8 @@ command_all_export() {
           --parents) ARGS="$ARGS --parents" ;;
           -f) ARGS="$ARGS -f" ;;
           --force) ARGS="$ARGS --force" ;;
-          -u) USED=1 ;;
-          --used) USED=1 ;;
+          -i) INUSE=1 ;;
+          --in-use) INUSE=1 ;;
           -s) STOP=1 ;;
           --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized export option" ;;
@@ -407,11 +407,11 @@ command_all_export() {
 
   VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
 
-  if [ $USED -eq 1 ]; then
+  if [ $INUSE -eq 1 ]; then
     VOLUMES=''
 
     for VOLUME_NAME in $VOLUME_NAMES; do
-      CONTAINERS=$(docker ps -q -a -f volume="$VOLUME_NAME") || error 'Failed to get the list of used volumes'
+      CONTAINERS=$(docker ps -q -a -f volume="$VOLUME_NAME") || error 'Failed to get the list of volumes in use by containers'
 
       if [ -n "$CONTAINERS" ]; then
         if [ -z "$VOLUMES" ]; then
