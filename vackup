@@ -17,6 +17,10 @@ if [ -z "$BASH" ]; then
   BASH=''
 fi
 
+if [ -z "$VACKUP_FAILURE_SCRIPT" ]; then
+  VACKUP_FAILURE_SCRIPT=''
+fi
+
 if [ -n "$BASH" ]; then
   set -Eeuo pipefail
 else
@@ -30,8 +34,8 @@ handle_error() {
     *) LINE_NUMBER=$LINENO; EXIT_CODE=1 ;;
   esac
 
-  if [ -n "${VACKUP_FAILURE_SCRIPT}" ]; then
-    /usr/bin/env bash "${VACKUP_FAILURE_SCRIPT}" "$LINE_NUMBER" $EXIT_CODE
+  if [ -n "$VACKUP_FAILURE_SCRIPT" ]; then
+    /usr/bin/env bash "$VACKUP_FAILURE_SCRIPT" "$LINE_NUMBER" $EXIT_CODE
   fi
 
   exit $EXIT_CODE
