@@ -47,6 +47,90 @@ else
   trap 'handle_error $LINENO $?' EXIT
 fi
 
+if [ -t 1 ]; then
+  RESET_COLOR='\033[0m'
+
+  BLACK_COLOR='\033[0;30m'
+  RED_COLOR='\033[0;31m'
+  GREEN_COLOR='\033[0;32m'
+  YELLOW_COLOR='\033[0;33m'
+  BLUE_COLOR='\033[0;34m'
+  PURPLE_COLOR='\033[0;35m'
+  CYAN_COLOR='\033[0;36m'
+  WHITE_COLOR='\033[0;37m'
+
+  BOLD_BLACK_COLOR='\033[1;30m'
+  BOLD_RED_COLOR='\033[1;31m'
+  BOLD_GREEN_COLOR='\033[1;32m'
+  BOLD_YELLOW_COLOR='\033[1;33m'
+  BOLD_BLUE_COLOR='\033[1;34m'
+  BOLD_PURPLE_COLOR='\033[1;35m'
+  BOLD_CYAN_COLOR='\033[1;36m'
+  BOLD_WHITE_COLOR='\033[1;37m'
+else
+  RESET_COLOR=''
+
+  BLACK_COLOR=''
+  RED_COLOR=''
+  GREEN_COLOR=''
+  YELLOW_COLOR=''
+  BLUE_COLOR=''
+  PURPLE_COLOR=''
+  CYAN_COLOR=''
+  WHITE_COLOR=''
+
+  BOLD_BLACK_COLOR=''
+  BOLD_RED_COLOR=''
+  BOLD_GREEN_COLOR=''
+  BOLD_YELLOW_COLOR=''
+  BOLD_BLUE_COLOR=''
+  BOLD_PURPLE_COLOR=''
+  BOLD_CYAN_COLOR=''
+  BOLD_WHITE_COLOR=''
+fi
+
+if [ -t 2 ]; then
+  RESET_COLOR_ERR='\033[0m'
+
+  BLACK_COLOR_ERR='\033[0;30m'
+  RED_COLOR_ERR='\033[0;31m'
+  GREEN_COLOR_ERR='\033[0;32m'
+  YELLOW_COLOR_ERR='\033[0;33m'
+  BLUE_COLOR_ERR='\033[0;34m'
+  PURPLE_COLOR_ERR='\033[0;35m'
+  CYAN_COLOR_ERR='\033[0;36m'
+  WHITE_COLOR_ERR='\033[0;37m'
+
+  BOLD_BLACK_COLOR_ERR='\033[1;30m'
+  BOLD_RED_COLOR_ERR='\033[1;31m'
+  BOLD_GREEN_COLOR_ERR='\033[1;32m'
+  BOLD_YELLOW_COLOR_ERR='\033[1;33m'
+  BOLD_BLUE_COLOR_ERR='\033[1;34m'
+  BOLD_PURPLE_COLOR_ERR='\033[1;35m'
+  BOLD_CYAN_COLOR_ERR='\033[1;36m'
+  BOLD_WHITE_COLOR_ERR='\033[1;37m'
+else
+  RESET_COLOR_ERR=''
+
+  BLACK_COLOR_ERR=''
+  RED_COLOR_ERR=''
+  GREEN_COLOR_ERR=''
+  YELLOW_COLOR_ERR=''
+  BLUE_COLOR_ERR=''
+  PURPLE_COLOR_ERR=''
+  CYAN_COLOR_ERR=''
+  WHITE_COLOR_ERR=''
+
+  BOLD_BLACK_COLOR_ERR=''
+  BOLD_RED_COLOR_ERR=''
+  BOLD_GREEN_COLOR_ERR=''
+  BOLD_YELLOW_COLOR_ERR=''
+  BOLD_BLUE_COLOR_ERR=''
+  BOLD_PURPLE_COLOR_ERR=''
+  BOLD_CYAN_COLOR_ERR=''
+  BOLD_WHITE_COLOR_ERR=''
+fi
+
 print_usage() {
   STDERR=0
   EXIT=0
@@ -118,9 +202,9 @@ warning() {
   fi
 
   if [ -z "$MESSAGE" ]; then
-    echo 1>&2 'Warning'
+    echo 1>&2 -e "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}"
   else
-    echo 1>&2 "Warning: $MESSAGE"
+    echo 1>&2 -e "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}: $MESSAGE"
   fi
 
   if [ $USAGE -eq 1 ]; then
@@ -150,9 +234,9 @@ error() {
   fi
 
   if [ -z "$MESSAGE" ]; then
-    echo 1>&2 'Error'
+    echo 1>&2 -e "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}"
   else
-    echo 1>&2 "Error: $MESSAGE"
+    echo 1>&2 -e "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}: $MESSAGE"
   fi
 
   if [ $USAGE -eq 1 ]; then
@@ -165,6 +249,40 @@ error() {
   else
     exit $CODE
   fi
+}
+
+information() {
+  COLOR="$BLUE_COLOR"
+
+  if [ $# -ne 0 ]; then
+    case "$1" in
+      --*)
+        case "$1" in
+          --no-color) COLOR="$RESET_COLOR" ;;
+          --black) COLOR="$BLACK_COLOR" ;;
+          --red) COLOR="$RED_COLOR" ;;
+          --green) COLOR="$GREEN_COLOR" ;;
+          --yellow) COLOR="$YELLOW_COLOR" ;;
+          --blue) COLOR="$BLUE_COLOR" ;;
+          --purple) COLOR="$PURPLE_COLOR" ;;
+          --cyan) COLOR="$CYAN_COLOR" ;;
+          --white) COLOR="$WHITE_COLOR" ;;
+          *) warning 'unrecognized color' ;;
+        esac
+
+        shift
+      ;;
+      *) ;;
+    esac
+  fi
+
+  case $# in
+    1) MESSAGE=$1 ;;
+    2) MESSAGE="${COLOR}$1${RESET_COLOR}: $2" ;;
+    *) warning 'Wrong number of arguments'; MESSAGE=$1 ;;
+  esac
+
+  echo -e "$MESSAGE"
 }
 
 fulldirname() {
@@ -255,18 +373,18 @@ command_export() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Stopping containers: $CONTAINERS"
+    information 'Stopping containers' "$CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  echo "Exporting volume: $VOLUME_NAME"
+  information 'Exporting volume' "$VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume:ro \
     -v "$DIRECTORY":/vackup \
     busybox \
     tar -zcvf /vackup/"$FILE_NAME" -C /vackup-volume .; then
     if [ -n "$CONTAINERS" ]; then
-      echo "Restarting containers: $CONTAINERS"
+      information 'Restarting containers' "$CONTAINERS"
       docker restart $CONTAINERS 1> /dev/null
     fi
 
@@ -274,11 +392,11 @@ command_export() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Restarting containers: $CONTAINERS"
+    information 'Restarting containers' "$CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null
   fi
 
-  echo "Successfully tar'ed volume $VOLUME_NAME into file '$FILE_NAME'"
+  information --green 'Success' "Volume $VOLUME_NAME tar'ed into file '$FILE_NAME'"
 }
 
 command_import() {
@@ -335,18 +453,18 @@ command_import() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Stopping containers: $CONTAINERS"
+    information 'Stopping containers' "$CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  echo "Importing volume: $VOLUME_NAME"
+  information 'Importing volume' "$VOLUME_NAME"
   if ! docker run --rm \
     -v "$VOLUME_NAME":/vackup-volume \
     -v "$DIRECTORY/$FILE_NAME":"/vackup/$FILE_NAME":ro \
     busybox \
     tar -xvzf /vackup/"$FILE_NAME" -C /vackup-volume; then
     if [ -n "$CONTAINERS" ]; then
-      echo "Restarting containers: $CONTAINERS"
+      information 'Restarting containers' "$CONTAINERS"
       docker restart $CONTAINERS 1> /dev/null
     fi
 
@@ -354,11 +472,11 @@ command_import() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Restarting containers: $CONTAINERS"
+    information 'Restarting containers' "$CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null
   fi
 
-  echo "Successfully unpacked '$FILE_NAME' into volume $VOLUME_NAME"
+  information --green 'Success' "Archive '$FILE_NAME' unpacked into volume $VOLUME_NAME"
 }
 
 command_all_export() {
@@ -432,7 +550,7 @@ command_all_export() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Stopping containers: $CONTAINERS"
+    information 'Stopping containers' "$CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
 
@@ -445,7 +563,7 @@ command_all_export() {
   done
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Restarting containers: $CONTAINERS"
+    information 'Restarting containers' "$CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null
   fi
 
@@ -453,7 +571,7 @@ command_all_export() {
     error "Failed during $FAILED volume export"
   fi
 
-  echo "Successfully tar'ed volumes [$VOLUME_NAMES] into archive files"
+  information --green 'Success' "Volumes [$VOLUME_NAMES] tar'ed into archive files"
 }
 
 command_all_import() {
@@ -502,7 +620,7 @@ command_all_import() {
   fi
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Stopping containers: $CONTAINERS"
+    information 'Stopping containers' "$CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
 
@@ -529,7 +647,7 @@ command_all_import() {
   done
 
   if [ -n "$CONTAINERS" ]; then
-    echo "Restarting containers: $CONTAINERS"
+    information 'Restarting containers' "$CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null
   fi
 
@@ -537,7 +655,7 @@ command_all_import() {
     error "Failed during $FAILED volume import"
   fi
 
-  echo "Successfully unpacked archies into volumes [$SUCCESSFUL]"
+  information --green 'Success' "Archives unpacked into volumes [$SUCCESSFUL]"
 }
 
 command_all() {
