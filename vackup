@@ -76,12 +76,7 @@ vackup import FILE VOLUME
   Extracts a gzip'ed tarball into a volume
 
 EOF
-  )
-  
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error "Failed to generate the usage text"
-  fi
+  ) || error "Failed to generate the usage text"
 
   if [ $STDERR -eq 1 ]; then
     echo 1>&2 "$TEXT"
@@ -92,11 +87,7 @@ EOF
   if [ $EXIT -eq 1 ]; then
     if [ $STDERR -eq 1 ]; then
       if [ $CALLER -eq 1 ]; then
-        LINE_NUMBER=$(caller | awk '{ print $1 }')
-        ERROR_CODE=$?
-        if [ $ERROR_CODE -ne 0 ]; then
-          LINE_NUMBER='unknown'
-        fi
+        LINE_NUMBER=$(caller | awk '{ print $1 }') || LINE_NUMBER='unknown'
         handle_error $LINE_NUMBER 1
       else
         exit 1
@@ -133,11 +124,7 @@ error() {
   fi
 
   if [ $CALLER -eq 1 ]; then
-    LINE_NUMBER=$(caller | awk '{ print $1 }')
-    ERROR_CODE=$?
-    if [ $ERROR_CODE -ne 0 ]; then
-      LINE_NUMBER='unknown'
-    fi
+    LINE_NUMBER=$(caller | awk '{ print $1 }') || LINE_NUMBER='unknown'
     handle_error $LINE_NUMBER $CODE
   else
     exit $CODE
@@ -165,22 +152,14 @@ warning() {
 }
 
 fulldirname() {
-  DIRECTORY=$(dirname "$1")
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error "Failed to get the parent directory for $1"
-  fi
+  DIRECTORY=$(dirname "$1") || error "Failed to get the parent directory for $1"
 
   case "$DIRECTORY" in
     /*) ;;
     .*) DIRECTORY="$(pwd)/$DIRECTORY" ;;
     *) DIRECTORY="$(pwd)/$DIRECTORY" ;;
   esac
-  DIRECTORY=$(readlink -m "$DIRECTORY")
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error "Failed to get the full path for $DIRECTORY"
-  fi
+  DIRECTORY=$(readlink -m "$DIRECTORY") || error "Failed to get the full path for $DIRECTORY"
 
   echo "$DIRECTORY"
 }
@@ -236,12 +215,8 @@ command_export() {
     fi
   fi
 
-  DIRECTORY=$(fulldirname "$FILE_NAME")
-  FILE_NAME=$(basename "$FILE_NAME")
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error "Failed to get the file name for $FILE_NAME"
-  fi
+  DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
+  FILE_NAME=$(basename "$FILE_NAME") || error "Failed to get the file name for $FILE_NAME"
 
   if [ $PARENTS -eq 1 ]; then
     if ! mkdir -p "$DIRECTORY"; then
@@ -258,11 +233,7 @@ command_export() {
   fi
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME")
-    ERROR_CODE=$?
-    if [ $ERROR_CODE -ne 0 ]; then
-      error "Failed to get the list of containers using the $VOLUME_NAME volume"
-    fi
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME") || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
   else
     CONTAINERS=''
   fi
@@ -333,12 +304,8 @@ command_import() {
     error "Could not find or open '$FILE_NAME'"
   fi
 
-  DIRECTORY=$(fulldirname "$FILE_NAME")
-  FILE_NAME=$(basename "$FILE_NAME")
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error "Failed to get the file name for $FILE_NAME"
-  fi
+  DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
+  FILE_NAME=$(basename "$FILE_NAME") || error "Failed to get the file name for $FILE_NAME"
 
   if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
     warning "Volume $VOLUME_NAME does not exist, creating..."
@@ -346,11 +313,7 @@ command_import() {
   fi
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME")
-    ERROR_CODE=$?
-    if [ $ERROR_CODE -ne 0 ]; then
-      error "Failed to get the list of containers using the $VOLUME_NAME volume"
-    fi
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME") || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
   else
     CONTAINERS=''
   fi
@@ -424,11 +387,7 @@ command_all_export() {
   esac
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q)
-    ERROR_CODE=$?
-    if [ $ERROR_CODE -ne 0 ]; then
-      error 'Failed to get the list of containers'
-    fi
+    CONTAINERS=$(docker ps -q) || error 'Failed to get the list of running containers'
   else
     CONTAINERS=''
   fi
@@ -438,11 +397,7 @@ command_all_export() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  VOLUME_NAMES=$(docker volume ls -q)
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error 'Failed to get the list of volumes'
-  fi
+  VOLUME_NAMES=$(docker volume ls -q) || error 'Failed to get the list of volumes'
 
   FAILED=''
   for VOLUME_NAME in $VOLUME_NAMES; do
@@ -502,11 +457,7 @@ command_all_import() {
   esac
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q)
-    ERROR_CODE=$?
-    if [ $ERROR_CODE -ne 0 ]; then
-      error 'Failed to get the list of containers'
-    fi
+    CONTAINERS=$(docker ps -q) || error 'Failed to get the list of running containers'
   else
     CONTAINERS=''
   fi
@@ -516,11 +467,7 @@ command_all_import() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  VOLUME_NAMES=$(docker volume ls -q)
-  ERROR_CODE=$?
-  if [ $ERROR_CODE -ne 0 ]; then
-    error 'Failed to get the list of volumes'
-  fi
+  VOLUME_NAMES=$(docker volume ls -q) || error 'Failed to get the list of volumes'
 
   SUCCESSFUL=''
   FAILED=''
