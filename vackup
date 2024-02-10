@@ -402,6 +402,8 @@ command_all_export() {
     ;;
   esac
 
+  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
+
   if [ $STOP -eq 1 ]; then
     CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
   else
@@ -412,8 +414,6 @@ command_all_export() {
     echo "Stopping containers: $CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
-
-  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
 
   FAILED=''
   for VOLUME_NAME in $VOLUME_NAMES; do
@@ -472,6 +472,8 @@ command_all_import() {
     ;;
   esac
 
+  VOLUME_NAMES=$(docker volume ls -q) || error 'Failed to get the list of volumes'
+
   if [ $STOP -eq 1 ]; then
     CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
   else
@@ -482,8 +484,6 @@ command_all_import() {
     echo "Stopping containers: $CONTAINERS"
     docker stop $CONTAINERS 1> /dev/null
   fi
-
-  VOLUME_NAMES=$(docker volume ls -q) || error 'Failed to get the list of volumes'
 
   SUCCESSFUL=''
   FAILED=''
