@@ -98,15 +98,55 @@ EOF
   fi
 }
 
-error() {
-  if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
-    USAGE=1
-    MESSAGE=$2
-    CODE=$3
+warning() {
+  if [ $# -gt 0 ]; then
+    if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
+      USAGE=1
+      shift
+    else
+      USAGE=0
+    fi
+
+    case $# in
+      0) MESSAGE='' ;;
+      1) MESSAGE=$1 ;;
+      *) warning 'Wrong number of arguments'; MESSAGE=$1 ;;
+    esac
   else
     USAGE=0
-    MESSAGE=$1
-    CODE=$2
+    MESSAGE=''
+  fi
+
+  if [ -z "$MESSAGE" ]; then
+    echo 1>&2 'Warning'
+  else
+    echo 1>&2 "Warning: $MESSAGE"
+  fi
+
+  if [ $USAGE -eq 1 ]; then
+    print_usage --err
+  fi
+}
+
+error() {
+  if [ $# -gt 0 ]; then
+    if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
+      USAGE=1
+      shift
+    else
+      USAGE=0
+    fi
+
+    case $# in
+      0) MESSAGE=''; CODE=1 ;;
+      1) MESSAGE=$1; CODE=1 ;;
+      2) MESSAGE=$1; CODE=$2 ;;
+      *) warning 'Wrong number of arguments'; MESSAGE=$1; CODE=$2 ;;
+    esac
+  else
+    USAGE=0
+    MESSAGE=''
+    CODE=1
   fi
 
   if [ -z "$MESSAGE" ]; then
@@ -119,35 +159,11 @@ error() {
     print_usage --err
   fi
 
-  if [ -z "$CODE" ]; then
-    CODE=1
-  fi
-
   if [ $CALLER -eq 1 ]; then
     LINE_NUMBER=$(caller | awk '{ print $1 }') || LINE_NUMBER='unknown'
     handle_error $LINE_NUMBER $CODE
   else
     exit $CODE
-  fi
-}
-
-warning() {
-  if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
-    USAGE=1
-    MESSAGE=$2
-  else
-    USAGE=0
-    MESSAGE=$1
-  fi
-
-  if [ -z "$MESSAGE" ]; then
-    echo 1>&2 'Warning'
-  else
-    echo 1>&2 "Warning: $MESSAGE"
-  fi
-
-  if [ $USAGE -eq 1 ]; then
-    print_usage --err
   fi
 }
 
