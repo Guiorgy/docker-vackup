@@ -363,6 +363,7 @@ command_import() {
 
 command_all_export() {
   ARGS=''
+  USED=0
   STOP=0
 
   while [ $# -ne 1 ]; do
@@ -375,6 +376,8 @@ command_all_export() {
           --parents) ARGS="$ARGS --parents" ;;
           -f) ARGS="$ARGS -f" ;;
           --force) ARGS="$ARGS --force" ;;
+          -u) USED=1 ;;
+          --used) USED=1 ;;
           -s) STOP=1 ;;
           --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized export option" ;;
@@ -403,6 +406,24 @@ command_all_export() {
   esac
 
   VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
+
+  if [ $USED -eq 1 ]; then
+    VOLUMES=''
+
+    for VOLUME_NAME in $VOLUME_NAMES; do
+      CONTAINERS=$(docker ps -q -a -f volume="$VOLUME_NAME") || error 'Failed to get the list of used volumes'
+
+      if [ -n "$CONTAINERS" ]; then
+        if [ -z "$VOLUMES" ]; then
+          VOLUMES="$VOLUME_NAME"
+        else
+          VOLUMES="$VOLUMES $VOLUME_NAME"
+        fi
+      fi
+    done
+
+    VOLUME_NAMES="$VOLUMES"
+  fi
 
   if [ $STOP -eq 1 ]; then
     CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
