@@ -249,7 +249,7 @@ command_export() {
   fi
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME") || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME" | tr '\n' ' ' | awk '{$1=$1;print}') || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
   else
     CONTAINERS=''
   fi
@@ -329,7 +329,7 @@ command_import() {
   fi
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME") || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME" | tr '\n' ' ' | awk '{$1=$1;print}') || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
   else
     CONTAINERS=''
   fi
@@ -403,7 +403,7 @@ command_all_export() {
   esac
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q) || error 'Failed to get the list of running containers'
+    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
   else
     CONTAINERS=''
   fi
@@ -413,7 +413,7 @@ command_all_export() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  VOLUME_NAMES=$(docker volume ls -q) || error 'Failed to get the list of volumes'
+  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
 
   FAILED=''
   for VOLUME_NAME in $VOLUME_NAMES; do
@@ -473,7 +473,7 @@ command_all_import() {
   esac
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q) || error 'Failed to get the list of running containers'
+    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
   else
     CONTAINERS=''
   fi
@@ -500,7 +500,11 @@ command_all_import() {
       break
     fi
 
-    SUCCESSFUL="$SUCCESSFUL $VOLUME_NAME"
+    if [ -z "$SUCCESSFUL" ]; then
+      SUCCESSFUL="$VOLUME_NAME"
+    else
+      SUCCESSFUL="$SUCCESSFUL $VOLUME_NAME"
+    fi
   done
 
   if [ -n "$CONTAINERS" ]; then
