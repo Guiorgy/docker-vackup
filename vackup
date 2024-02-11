@@ -377,10 +377,11 @@ command_export() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  TAR_OPTIONS='-zcf'
+  TAR_OPTIONS='-zc'
   if [ $VERBOSE -eq 1 ]; then
     TAR_OPTIONS="${TAR_OPTIONS}v"
   fi
+  TAR_OPTIONS="${TAR_OPTIONS}f"
 
   information 'Exporting volume' "$VOLUME_NAME"
   if ! docker run --rm \
@@ -462,10 +463,11 @@ command_import() {
     docker stop $CONTAINERS 1> /dev/null
   fi
 
-  TAR_OPTIONS='-xzf'
+  TAR_OPTIONS='-xz'
   if [ $VERBOSE -eq 1 ]; then
     TAR_OPTIONS="${TAR_OPTIONS}v"
   fi
+  TAR_OPTIONS="${TAR_OPTIONS}f"
 
   information 'Importing volume' "$VOLUME_NAME"
   if ! docker run --rm \
