@@ -297,6 +297,107 @@ fulldirname() {
   echo "$DIRECTORY"
 }
 
+assert_is_directory() {
+  if [ $# -gt 0 ]; then
+    DIRECTORY="$1"
+  fi
+
+  case "$DIRECTORY" in
+    */) ;;
+    *)
+      if [ -f "$DIRECTORY" ]; then
+        error "'$DIRECTORY' is a file"
+      fi
+
+      DIRECTORY="$DIRECTORY/"
+    ;;
+  esac
+}
+
+append_file_if_dir() {
+  DIR_OR_FILE="$1"
+  FILE="$2"
+
+  case "$DIR_OR_FILE" in
+    */) echo "$DIR_OR_FILE$FILE" ;;
+    *)
+      if [ -d "$DIR_OR_FILE" ]; then
+        echo "$DIR_OR_FILE/$FILE"
+      else
+        echo "$DIR_OR_FILE"
+      fi
+    ;;
+  esac
+}
+
+volume_doesnot_exists() {
+  ERROR=0
+  CREATE=0
+
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
+          --error) ERROR=1 ;;
+          --create) CREATE=1 ;;
+          *) warning "'$OPTION' is not a recognized volume_doesnot_exists option"
+        esac
+      ;;
+      *) break ;;
+    esac
+  done
+
+  if [ $# -gt 0 ]; then
+    VOLUME_NAME="$1"
+  fi
+
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
+    if [ $ERROR -eq 1 ]; then
+      error "Volume $VOLUME_NAME does not exist"
+    elif [ $CREATE -eq 1 ]; then
+      warning "Volume $VOLUME_NAME does not exist, creating..."
+      docker volume create "$VOLUME_NAME" 1> /dev/null
+    else
+      warning "Volume $VOLUME_NAME does not exist"
+    fi
+  fi
+}
+
+get_volumes() {
+  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
+}
+
+get_volumes_in_use() {
+  get_volumes
+
+  VOLUMES=''
+  for VOLUME_NAME in $VOLUME_NAMES; do
+    CONTAINERS=$(docker ps -q -a -f volume="$VOLUME_NAME") || error "Failed to get the list of containers using volume $VOLUME_NAME"
+
+    if [ -n "$CONTAINERS" ]; then
+      if [ -z "$VOLUMES" ]; then
+        VOLUMES="$VOLUME_NAME"
+      else
+        VOLUMES="$VOLUMES $VOLUME_NAME"
+      fi
+    fi
+  done
+
+  VOLUME_NAMES="$VOLUMES"
+}
+
+get_running_containers() {
+  if [ $# -gt 0 ]; then
+    VOLUME_NAME="$1"
+    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME" | tr '\n' ' ' | awk '{$1=$1;print}') || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
+  else
+    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
+  fi
+}
+
 stop_containers() {
   if [ -n "$CONTAINERS" ]; then
     information 'Stopping containers' "$CONTAINERS"
@@ -334,20 +435,12 @@ command_export() {
   done
 
   case $# in
-    1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
+    1) VOLUME_NAME="$1"; FILE_NAME="./" ;;
     2) VOLUME_NAME="$1"; FILE_NAME="$2" ;;
     *) error usage 'Wrong number of arguments' ;;
   esac
 
-  case "$FILE_NAME" in
-    */) FILE_NAME="$FILE_NAME$VOLUME_NAME.tar.gz" ;;
-    *)
-      if [ -d "$FILE_NAME" ]; then
-        FILE_NAME="$FILE_NAME/$VOLUME_NAME.tar.gz"
-      fi
-    ;;
-  esac
-
+  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.tar.gz")
   if [ -f "$FILE_NAME" ]; then
     if [ $OVERWRITE -eq 1 ]; then
       if [ ! -w "$FILE_NAME" ]; then
@@ -370,13 +463,12 @@ command_export() {
   if [ ! -w "$DIRECTORY" ]; then
     error "Unable to write to '$DIRECTORY'"
   fi
+  assert_is_directory
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
-    error "Volume $VOLUME_NAME does not exist"
-  fi
+  volume_doesnot_exists --error
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME" | tr '\n' ' ' | awk '{$1=$1;print}') || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
+    get_running_containers "$VOLUME_NAME"
   else
     CONTAINERS=''
   fi
@@ -435,39 +527,28 @@ command_import() {
   done
 
   case $# in
-    1) VOLUME_NAME="$1"; FILE_NAME="$VOLUME_NAME.tar.gz" ;;
+    1) VOLUME_NAME="$1"; FILE_NAME="./" ;;
     2) FILE_NAME="$1"; VOLUME_NAME="$2" ;;
     *) error usage 'Wrong number of arguments' ;;
   esac
 
-  case "$FILE_NAME" in
-    */) FILE_NAME="$FILE_NAME$VOLUME_NAME.tar.gz" ;;
-    *)
-      if [ -d "$FILE_NAME" ]; then
-        FILE_NAME="$FILE_NAME/$VOLUME_NAME.tar.gz"
-      fi
-    ;;
-  esac
-
+  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.tar.gz")
   if [ ! -r "$FILE_NAME" ]; then
     error "Could not find or open '$FILE_NAME'"
   fi
 
   DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
   FILE_NAME=$(basename "$FILE_NAME") || error "Failed to get the file name for $FILE_NAME"
+  assert_is_directory
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
-    warning "Volume $VOLUME_NAME does not exist, creating..."
-    docker volume create "$VOLUME_NAME" 1> /dev/null
-  fi
+  volume_doesnot_exists --create
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME" | tr '\n' ' ' | awk '{$1=$1;print}') || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
+    get_running_containers "$VOLUME_NAME"
+    stop_containers
   else
     CONTAINERS=''
   fi
-
-  stop_containers
 
   TAR_OPTIONS='-xz'
   if [ $VERBOSE -eq 1 ]; then
@@ -526,48 +607,22 @@ command_all_export() {
   done
 
   case $# in
-    1) DIRECTORY="$1" ;;
+    1) DIRECTORY="$1"; assert_is_directory ;;
     *) error usage 'Wrong number of arguments' ;;
   esac
 
-  case "$DIRECTORY" in
-    */) ;;
-    *)
-      if [ -f "$DIRECTORY" ]; then
-        error "'$DIRECTORY' is a file"
-      fi
-
-      DIRECTORY="$DIRECTORY/"
-    ;;
-  esac
-
-  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
-
   if [ $INUSE -eq 1 ]; then
-    VOLUMES=''
-
-    for VOLUME_NAME in $VOLUME_NAMES; do
-      CONTAINERS=$(docker ps -q -a -f volume="$VOLUME_NAME") || error 'Failed to get the list of volumes in use by containers'
-
-      if [ -n "$CONTAINERS" ]; then
-        if [ -z "$VOLUMES" ]; then
-          VOLUMES="$VOLUME_NAME"
-        else
-          VOLUMES="$VOLUMES $VOLUME_NAME"
-        fi
-      fi
-    done
-
-    VOLUME_NAMES="$VOLUMES"
+    get_volumes_in_use
+  else
+    get_volumes
   fi
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
+    get_running_containers
+    stop_containers
   else
     CONTAINERS=''
   fi
-
-  stop_containers
 
   for VOLUME_NAME in $VOLUME_NAMES; do
     if ! (command_export $ARGS "$VOLUME_NAME" "$DIRECTORY"); then
@@ -601,30 +656,18 @@ command_all_import() {
   done
 
   case $# in
-    1) DIRECTORY="$1" ;;
+    1) DIRECTORY="$1"; assert_is_directory ;;
     *) error usage 'Wrong number of arguments' ;;
   esac
 
-  case "$DIRECTORY" in
-    */) ;;
-    *)
-      if [ -f "$DIRECTORY" ]; then
-        error "'$DIRECTORY' is a file"
-      fi
-
-      DIRECTORY="$DIRECTORY/"
-    ;;
-  esac
-
-  VOLUME_NAMES=$(docker volume ls -q) || error 'Failed to get the list of volumes'
+  get_volumes
 
   if [ $STOP -eq 1 ]; then
-    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
+    get_running_containers
+    stop_containers
   else
     CONTAINERS=''
   fi
-
-  stop_containers
 
   SUCCESSFUL=''
   for VOLUME_NAME in $VOLUME_NAMES; do
