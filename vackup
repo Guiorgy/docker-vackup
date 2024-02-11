@@ -369,12 +369,12 @@ command_export() {
 
   if [ -n "$CONTAINERS" ]; then
     information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null
+    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
   fi
   restart_containers() {
     if [ -n "$CONTAINERS" ]; then
       information 'Restarting containers' "$CONTAINERS"
-      docker restart $CONTAINERS 1> /dev/null
+      docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
     fi
   }
 
@@ -464,12 +464,12 @@ command_import() {
 
   if [ -n "$CONTAINERS" ]; then
     information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null
+    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
   fi
   restart_containers() {
     if [ -n "$CONTAINERS" ]; then
       information 'Restarting containers' "$CONTAINERS"
-      docker restart $CONTAINERS 1> /dev/null
+      docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
     fi
   }
 
@@ -573,7 +573,7 @@ command_all_export() {
 
   if [ -n "$CONTAINERS" ]; then
     information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null
+    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
   fi
 
   FAILED=''
@@ -586,7 +586,7 @@ command_all_export() {
 
   if [ -n "$CONTAINERS" ]; then
     information 'Restarting containers' "$CONTAINERS"
-    docker restart $CONTAINERS 1> /dev/null
+    docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
   fi
 
   if [ -n "$FAILED" ]; then
@@ -641,7 +641,7 @@ command_all_import() {
 
   if [ -n "$CONTAINERS" ]; then
     information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null
+    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
   fi
 
   SUCCESSFUL=''
@@ -668,7 +668,7 @@ command_all_import() {
 
   if [ -n "$CONTAINERS" ]; then
     information 'Restarting containers' "$CONTAINERS"
-    docker restart $CONTAINERS 1> /dev/null
+    docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
   fi
 
   if [ -n "$FAILED" ]; then
