@@ -412,6 +412,8 @@ restart_containers() {
   fi
 }
 
+EXTENSION='tar.gz'
+
 command_export() {
   PARENTS=0
   OVERWRITE=0
@@ -440,7 +442,7 @@ command_export() {
     *) error usage 'Wrong number of arguments' ;;
   esac
 
-  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.tar.gz")
+  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.$EXTENSION")
   if [ -f "$FILE_NAME" ]; then
     if [ $OVERWRITE -eq 1 ]; then
       if [ ! -w "$FILE_NAME" ]; then
@@ -532,7 +534,7 @@ command_import() {
     *) error usage 'Wrong number of arguments' ;;
   esac
 
-  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.tar.gz")
+  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.$EXTENSION")
   if [ ! -r "$FILE_NAME" ]; then
     error "Could not find or open '$FILE_NAME'"
   fi
@@ -671,7 +673,7 @@ command_all_import() {
 
   SUCCESSFUL=''
   for VOLUME_NAME in $VOLUME_NAMES; do
-    FILE_NAME="$DIRECTORY$VOLUME_NAME.tar.gz"
+    FILE_NAME="$DIRECTORY$VOLUME_NAME.$EXTENSION"
 
     if [ ! -f "$FILE_NAME" ]; then
       warning "'$FILE_NAME' was not found, skipping import of '$VOLUME_NAME' volume"
