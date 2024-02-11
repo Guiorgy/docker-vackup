@@ -285,6 +285,48 @@ information() {
   echo -e "$MESSAGE"
 }
 
+chars() {
+  case $# in
+    1) STR="$1" ;;
+    2)
+      STR="$2"
+      SKIP="$1"
+
+      LEN="${#STR}"
+      if [ $LEN -lt $SKIP ]; then
+        SKIP="$LEN"
+      fi
+
+      while [ "$SKIP" -gt 0 ]; do
+        STR="${STR#?}"
+        SKIP=$((SKIP - 1))
+      done
+    ;;
+    *) STR="$1"; warning 'Wrong number of arguments in the chars function' ;;
+  esac
+
+  while [ -n "$STR" ]; do
+    REST="${STR#?}"
+
+    CHAR="${STR%"$REST"}"
+    echo "$CHAR"
+
+    STR="$REST"
+  done
+}
+
+prefix_all() {
+  case $# in
+    0 | 1) LIST=''; warning 'Wrong number of arguments in the prefix_all function' ;;
+    *) PREFIX="$1"; shift; LIST="$@" ;;
+  esac
+
+  for ITEM in $LIST; do
+    ITEM="$PREFIX$ITEM"
+    printf '%s\n' "$ITEM"
+  done
+}
+
 fulldirname() {
   DIRECTORY=$(dirname "$1") || error "Failed to get the parent directory for $1"
 
@@ -422,15 +464,18 @@ command_export() {
   while [ $# -ne 0 ]; do
     case "$1" in
       -*)
-        case "$1" in
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
           -h | --help) print_usage --exit ;;
           -p | --parents) PARENTS=1 ;;
           -f | --force) OVERWRITE=1 ;;
           -s | --stop) STOP=1 ;;
-          *) error usage "'$1' is not a recognized export option" ;;
+          --*) error usage "'$OPTION' is not a recognized export option" ;;
+          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          *) error usage "'$OPTION' is not a recognized export option" ;;
         esac
-
-        shift
       ;;
       *) break ;;
     esac
@@ -516,13 +561,16 @@ command_import() {
   while [ $# -ne 0 ]; do
     case "$1" in
       -*)
-        case "$1" in
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
           -h | --help) print_usage --exit ;;
           -s | --stop) STOP=1 ;;
-          *) error usage "'$1' is not a recognized import option" ;;
+          --*) error usage "'$OPTION' is not a recognized import option" ;;
+          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          *) error usage "'$OPTION' is not a recognized import option" ;;
         esac
-
-        shift
       ;;
       *) break ;;
     esac
@@ -593,16 +641,19 @@ command_all_export() {
   while [ $# -ne 1 ]; do
     case "$1" in
       -*)
-        case "$1" in
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
           -h | --help) print_usage --exit ;;
           -p | --parents) ARGS="$ARGS --parents" ;;
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
-          *) error usage "'$1' is not a recognized export option" ;;
+          --*) error usage "'$OPTION' is not a recognized export option" ;;
+          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          *) error usage "'$OPTION' is not a recognized export option" ;;
         esac
-
-        shift
       ;;
       *) break ;;
     esac
@@ -645,13 +696,16 @@ command_all_import() {
   while [ $# -ne 1 ]; do
     case "$1" in
       -*)
-        case "$1" in
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
           -h | --help) print_usage --exit ;;
           -s | --stop) STOP=1 ;;
-          *) error usage "'$1' is not a recognized import option" ;;
+          --*) error usage "'$OPTION' is not a recognized import option" ;;
+          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          *) error usage "'$OPTION' is not a recognized import option" ;;
         esac
-
-        shift
       ;;
       *) break ;;
     esac
@@ -704,6 +758,8 @@ command_all() {
 
     case "$COMMAND" in
       -h | --help | help) print_usage --exit ;;
+      --*) error usage "'$COMMAND' is not a recognized command" ;;
+      -??*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
       export) command_all_export "$@"; exit 0 ;;
       import) command_all_import "$@"; exit 0 ;;
       all | *) error usage "'$COMMAND' is not a recognized command" ;;
@@ -726,6 +782,8 @@ while [ $# -gt 0 ]; do
     -q | --quiet) exec 3>&1 1>/dev/null ;;
     -v | --verbose) VERBOSE=1 ;;
     -H | --host) HOST=1 ;;
+    --*) error usage "'$COMMAND' is not a recognized command" ;;
+    -??*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
     export) command_export "$@"; exit 0 ;;
     import) command_import "$@"; exit 0 ;;
     all) command_all "$@"; exit 0 ;;
