@@ -698,43 +698,41 @@ command_all_import() {
 }
 
 command_all() {
-  if [ $# -eq 0 ]; then
-    print_usage --exit
-  fi
+  while [ $# -gt 0 ]; do
+    COMMAND="$1"
+    shift
 
-  COMMAND="$1"
-  shift
-  case "$COMMAND" in
-    -h | --help | help) print_usage --exit ;;
-    export) command_all_export "$@" ;;
-    import) command_all_import "$@" ;;
-    all | *) error usage "'$COMMAND' is not a recognized command" ;;
-  esac
+    case "$COMMAND" in
+      -h | --help | help) print_usage --exit ;;
+      export) command_all_export "$@"; exit 0 ;;
+      import) command_all_import "$@"; exit 0 ;;
+      all | *) error usage "'$COMMAND' is not a recognized command" ;;
+    esac
+  done
+
+  print_usage --exit
 }
 
 exec 3>&1
 VERBOSE=0
 HOST=0
 
-parse_command() {
-  if [ $# -eq 0 ]; then
-    print_usage --exit
-  fi
-
+while [ $# -gt 0 ]; do
   COMMAND="$1"
   shift
+
   case "$COMMAND" in
     -h | --help | help) print_usage --exit ;;
-    -q | --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
-    -v | --verbose) VERBOSE=1 ; parse_command "$@" ;;
-    -H | --host) HOST=1 ; parse_command "$@" ;;
-    export) command_export "$@" ;;
-    import) command_import "$@" ;;
-    all) command_all "$@" ;;
+    -q | --quiet) exec 3>&1 1>/dev/null ;;
+    -v | --verbose) VERBOSE=1 ;;
+    -H | --host) HOST=1 ;;
+    export) command_export "$@"; exit 0 ;;
+    import) command_import "$@"; exit 0 ;;
+    all) command_all "$@"; exit 0 ;;
     *) error usage "'$COMMAND' is not a recognized command" ;;
   esac
-}
+done
 
-parse_command "$@"
+print_usage --exit
 
 exit 0
