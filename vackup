@@ -359,7 +359,7 @@ volume_doesnot_exists() {
       error "Volume $VOLUME_NAME does not exist"
     elif [ $CREATE -eq 1 ]; then
       warning "Volume $VOLUME_NAME does not exist, creating..."
-      docker volume create "$VOLUME_NAME" 1> /dev/null
+      docker volume create "$VOLUME_NAME" 1> /dev/null || error "Failed to create volume $VOLUME_NAME"
     else
       warning "Volume $VOLUME_NAME does not exist"
     fi
