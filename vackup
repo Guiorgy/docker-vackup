@@ -297,6 +297,20 @@ fulldirname() {
   echo "$DIRECTORY"
 }
 
+stop_containers() {
+  if [ -n "$CONTAINERS" ]; then
+    information 'Stopping containers' "$CONTAINERS"
+    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
+  fi
+}
+
+restart_containers() {
+  if [ -n "$CONTAINERS" ]; then
+    information 'Restarting containers' "$CONTAINERS"
+    docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
+  fi
+}
+
 command_export() {
   PARENTS=0
   OVERWRITE=0
@@ -367,16 +381,7 @@ command_export() {
     CONTAINERS=''
   fi
 
-  if [ -n "$CONTAINERS" ]; then
-    information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
-  fi
-  restart_containers() {
-    if [ -n "$CONTAINERS" ]; then
-      information 'Restarting containers' "$CONTAINERS"
-      docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
-    fi
-  }
+  stop_containers
 
   TAR_OPTIONS='-zc'
   if [ $VERBOSE -eq 1 ]; then
@@ -462,16 +467,7 @@ command_import() {
     CONTAINERS=''
   fi
 
-  if [ -n "$CONTAINERS" ]; then
-    information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
-  fi
-  restart_containers() {
-    if [ -n "$CONTAINERS" ]; then
-      information 'Restarting containers' "$CONTAINERS"
-      docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
-    fi
-  }
+  stop_containers
 
   TAR_OPTIONS='-xz'
   if [ $VERBOSE -eq 1 ]; then
@@ -571,27 +567,16 @@ command_all_export() {
     CONTAINERS=''
   fi
 
-  if [ -n "$CONTAINERS" ]; then
-    information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
-  fi
+  stop_containers
 
-  FAILED=''
   for VOLUME_NAME in $VOLUME_NAMES; do
     if ! (command_export $ARGS "$VOLUME_NAME" "$DIRECTORY"); then
-      FAILED="$VOLUME_NAME"
-      break
+      restart_containers
+      error "Failed during $VOLUME_NAME volume export"
     fi
   done
 
-  if [ -n "$CONTAINERS" ]; then
-    information 'Restarting containers' "$CONTAINERS"
-    docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
-  fi
-
-  if [ -n "$FAILED" ]; then
-    error "Failed during $FAILED volume export"
-  fi
+  restart_containers
 
   information --green 'Success' "Volumes [$VOLUME_NAMES] tar'ed into archive files"
 }
@@ -639,13 +624,9 @@ command_all_import() {
     CONTAINERS=''
   fi
 
-  if [ -n "$CONTAINERS" ]; then
-    information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
-  fi
+  stop_containers
 
   SUCCESSFUL=''
-  FAILED=''
   for VOLUME_NAME in $VOLUME_NAMES; do
     FILE_NAME="$DIRECTORY$VOLUME_NAME.tar.gz"
 
@@ -655,8 +636,8 @@ command_all_import() {
     fi
 
     if ! (command_import $ARGS "$FILE_NAME" "$VOLUME_NAME"); then
-      FAILED="$VOLUME_NAME"
-      break
+      restart_containers
+      error "Failed during $VOLUME_NAME volume import"
     fi
 
     if [ -z "$SUCCESSFUL" ]; then
@@ -666,14 +647,7 @@ command_all_import() {
     fi
   done
 
-  if [ -n "$CONTAINERS" ]; then
-    information 'Restarting containers' "$CONTAINERS"
-    docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
-  fi
-
-  if [ -n "$FAILED" ]; then
-    error "Failed during $FAILED volume import"
-  fi
+  restart_containers
 
   information --green 'Success' "Archives unpacked into volumes [$SUCCESSFUL]"
 }
