@@ -290,7 +290,6 @@ fulldirname() {
 
   case "$DIRECTORY" in
     /*) ;;
-    .*) DIRECTORY="$(pwd)/$DIRECTORY" ;;
     *) DIRECTORY="$(pwd)/$DIRECTORY" ;;
   esac
   DIRECTORY=$(readlink -m "$DIRECTORY") || error "Failed to get the full path for $DIRECTORY"
@@ -307,14 +306,10 @@ command_export() {
     case "$1" in
       -*)
         case "$1" in
-          -h) print_usage --exit ;;
-          --help) print_usage --exit ;;
-          -p) PARENTS=1 ;;
-          --parents) PARENTS=1 ;;
-          -f) OVERWRITE=1 ;;
-          --force) OVERWRITE=1 ;;
-          -s) STOP=1 ;;
-          --stop) STOP=1 ;;
+          -h | --help) print_usage --exit ;;
+          -p | --parents) PARENTS=1 ;;
+          -f | --force) OVERWRITE=1 ;;
+          -s | --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized export option" ;;
         esac
 
@@ -423,10 +418,8 @@ command_import() {
     case "$1" in
       -*)
         case "$1" in
-          -h) print_usage --exit ;;
-          --help) print_usage --exit ;;
-          -s) STOP=1 ;;
-          --stop) STOP=1 ;;
+          -h | --help) print_usage --exit ;;
+          -s | --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized import option" ;;
         esac
 
@@ -522,16 +515,11 @@ command_all_export() {
     case "$1" in
       -*)
         case "$1" in
-          -h) print_usage --exit ;;
-          --help) print_usage --exit ;;
-          -p) ARGS="$ARGS -p" ;;
-          --parents) ARGS="$ARGS --parents" ;;
-          -f) ARGS="$ARGS -f" ;;
-          --force) ARGS="$ARGS --force" ;;
-          -i) INUSE=1 ;;
-          --in-use) INUSE=1 ;;
-          -s) STOP=1 ;;
-          --stop) STOP=1 ;;
+          -h | --help) print_usage --exit ;;
+          -p | --parents) ARGS="$ARGS --parents" ;;
+          -f | --force) ARGS="$ARGS --force" ;;
+          -i | --in-use) INUSE=1 ;;
+          -s | --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized export option" ;;
         esac
 
@@ -616,10 +604,8 @@ command_all_import() {
     case "$1" in
       -*)
         case "$1" in
-          -h) print_usage --exit ;;
-          --help) print_usage --exit ;;
-          -s) STOP=1 ;;
-          --stop) STOP=1 ;;
+          -h | --help) print_usage --exit ;;
+          -s | --stop) STOP=1 ;;
           *) error usage "'$1' is not a recognized import option" ;;
         esac
 
@@ -700,13 +686,10 @@ command_all() {
   COMMAND="$1"
   shift
   case "$COMMAND" in
-    -h) print_usage --exit ;;
-    --help) print_usage --exit ;;
-    help) print_usage --exit ;;
+    -h | --help | help) print_usage --exit ;;
     export) command_all_export "$@" ;;
     import) command_all_import "$@" ;;
-    all) error usage "'$COMMAND' is not a recognized command" ;;
-    *) error usage "'$COMMAND' is not a recognized command" ;;
+    all | *) error usage "'$COMMAND' is not a recognized command" ;;
   esac
 }
 
@@ -722,15 +705,10 @@ parse_command() {
   COMMAND="$1"
   shift
   case "$COMMAND" in
-    -h) print_usage --exit ;;
-    --help) print_usage --exit ;;
-    help) print_usage --exit ;;
-    -q) exec 3>&1 1>/dev/null; parse_command "$@" ;;
-    --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
-    -v) VERBOSE=1 ; parse_command "$@" ;;
-    --verbose) VERBOSE=1 ; parse_command "$@" ;;
-    -H) HOST=1 ; parse_command "$@" ;;
-    --host) HOST=1 ; parse_command "$@" ;;
+    -h | --help | help) print_usage --exit ;;
+    -q | --quiet) exec 3>&1 1>/dev/null; parse_command "$@" ;;
+    -v | --verbose) VERBOSE=1 ; parse_command "$@" ;;
+    -H | --host) HOST=1 ; parse_command "$@" ;;
     export) command_export "$@" ;;
     import) command_import "$@" ;;
     all) command_all "$@" ;;
