@@ -196,16 +196,16 @@ warning() {
       1) MESSAGE=$1 ;;
       *) MESSAGE=$1; warning 'Wrong number of arguments in the warning function' ;;
     esac
+
+    if [ -n "$MESSAGE" ]; then
+      MESSAGE=": $MESSAGE"
+    fi
   else
     USAGE=0
     MESSAGE=''
   fi
 
-  if [ -z "$MESSAGE" ]; then
-    printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}\n"
-  else
-    printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}: $MESSAGE\n"
-  fi
+  printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}${MESSAGE}\n"
 
   if [ $USAGE -eq 1 ]; then
     print_usage --err
@@ -227,17 +227,17 @@ error() {
       2) MESSAGE=$1; CODE=$2 ;;
       *) MESSAGE=$1; CODE=$2; warning 'Wrong number of arguments in the error function' ;;
     esac
+
+    if [ -n "$MESSAGE" ]; then
+      MESSAGE=": $MESSAGE"
+    fi
   else
     USAGE=0
     MESSAGE=''
     CODE=1
   fi
 
-  if [ -z "$MESSAGE" ]; then
-    printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}\n"
-  else
-    printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}: $MESSAGE\n"
-  fi
+  printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}${MESSAGE}\n"
 
   if [ $USAGE -eq 1 ]; then
     print_usage --err
