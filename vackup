@@ -202,9 +202,9 @@ warning() {
   fi
 
   if [ -z "$MESSAGE" ]; then
-    echo 1>&2 -e "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}"
+    printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}\n"
   else
-    echo 1>&2 -e "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}: $MESSAGE"
+    printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}: $MESSAGE\n"
   fi
 
   if [ $USAGE -eq 1 ]; then
@@ -234,9 +234,9 @@ error() {
   fi
 
   if [ -z "$MESSAGE" ]; then
-    echo 1>&2 -e "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}"
+    printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}\n"
   else
-    echo 1>&2 -e "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}: $MESSAGE"
+    printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}: $MESSAGE\n"
   fi
 
   if [ $USAGE -eq 1 ]; then
@@ -282,7 +282,7 @@ information() {
     *) MESSAGE=$1; warning 'Wrong number of arguments in the information function' ;;
   esac
 
-  echo -e "$MESSAGE"
+  printf "$MESSAGE\n"
 }
 
 chars() {
