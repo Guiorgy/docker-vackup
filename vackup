@@ -9,6 +9,9 @@
 # It checks the BASH variable, and falls back to POSIX compliance if not set
 # It (hopefully) works with any POSIX shell
 
+# The file name of the script in case it was renamed
+VACKUP=$(basename "$0")
+
 # Some shells don't support this (looking at you dash)
 if [ -z "$LINENO" ]; then
   LINENO='unknown'
@@ -170,36 +173,189 @@ fi
 # Flags:
 #   --err (optional): Print to STDERR instead of STDOUT
 #   --exit (optional): Exit after printing usage. If --err is also set, exit with the error code 1
+# Parameters:
+#   For (optional, main by default): One of main, export, import, all, export-all or import-all
 print_usage() {
   STDERR=0
   EXIT=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
-      --err) STDERR=1 ;;
-      --exit) EXIT=1 ;;
-    esac
+      -*)
+        OPTION="$1"
+        shift
 
-    shift
+        case "$OPTION" in
+          --err) STDERR=1 ;;
+          --exit) EXIT=1 ;;
+          *) warning "'$OPTION' is not a recognized print_usage option"
+        esac
+      ;;
+      *) break ;;
+    esac
   done
 
-  TEXT=$(cat <<EOF
+  if [ $# -eq 0 ]; then
+    FOR='main'
+  else
+    FOR="$1"
+
+    if [ $# -gt 1 ]; then
+      warning 'Wrong number of arguments in the print_usage function'
+    fi
+  fi
+
+  case "$FOR" in
+    main)
+      TEXT=$(cat <<EOF
+
+Usage: $VACKUP [OPTIONS] COMMAND
 
 "Docker Volume Backup". Replicates image management commands for volumes.
 
-export/import copies files between a host tarball and a volume. For making
-  volume backups and restores.
+Commands:
+  help        Print this help page
+  export      Export a docker volume into an archive file
+  import      Import a docker volume from an archive file
+  all         Export/import multiple docker volumes to/from archive files
 
-Usage:
+Options:
+  -h, --help        Print this help page
+  -q, --quiet       Silence the outputs to STDOUT, except if the help page is
+                    explicitly requested
+  -v, --verbose     Verbose printing
+  -H, --host        Do the export/import by running the archive program on the
+                    host instead of a container
 
-vackup export VOLUME FILE
-  Creates a gzip'ed tarball in the current directory from a volume
-
-vackup import FILE VOLUME
-  Extracts a gzip'ed tarball into a volume
+Run '$VACKUP COMMAND --help' for more information on a command.
 
 EOF
-  ) || error "Failed to generate the usage text"
+      ) || error "Failed to generate the usage text"
+    ;;
+    export)
+      TEXT=$(cat <<EOF
+
+Usage: $VACKUP export [OPTIONS] VOLUME_NAME [OUTPUT]
+
+Export a docker volume into an archive file
+
+Parameters:
+  VOLUME_NAME     The docker volume to export
+  OUTPUT          The path to the output archive file. If the path points to a
+                  directory, a file inside the said directory with the name of
+                  the volume and archive extension will be assumed
+
+Options:
+  -h, --help        Print this help page
+  -p, --parents     Create parent directories for the archive file as needed
+  -f, --force       Overwrite the archive file if a file already exists
+  -s, --stop        Stop running containers that have the specified volume as a
+                    mount point before exporting, and restart them after
+
+EOF
+      ) || error "Failed to generate the usage text"
+    ;;
+    import)
+      TEXT=$(cat <<EOF
+
+Usage:
+  $VACKUP import [OPTIONS] INPUT VOLUME_NAME
+  $VACKUP import [OPTIONS] VOLUME_NAME
+
+Import a docker volume from an archive file
+
+Parameters:
+  INPUT           The path to the intput archive file. If the path points to a
+                  directory, a file inside the said directory with the name of
+                  the volume and archive extension will be assumed
+  VOLUME_NAME     The docker volume to import
+
+Options:
+  -h, --help      Print this help page
+  -s, --stop      Stop running containers that have the specified volume as a
+                  mount point before importing, and restart them after
+
+EOF
+      ) || error "Failed to generate the usage text"
+    ;;
+    all)
+      TEXT=$(cat <<EOF
+
+Usage: $VACKUP all [OPTIONS] COMMAND
+
+Export/import multiple docker volumes to/from archive files
+
+Commands:
+  help        Print this help page
+  export      Export multiple docker volumes into archive files
+  import      Import multiple docker volumes from archive files
+
+Options:
+  -h, --help      Print this help page
+
+Run '$VACKUP all COMMAND --help' for more information on a command.
+
+EOF
+      ) || error "Failed to generate the usage text"
+    ;;
+    export-all)
+      TEXT=$(cat <<EOF
+
+Usage: $VACKUP all export [OPTIONS] OUTPUT
+
+Export multiple docker volumes into archive files
+All exported archives will be named as the name of the volume and archive
+extension, e.g. my_docker_volume.tar.gz
+
+Parameters:
+  OUTPUT      The path to the output directory where the archive files will be
+              exported to
+
+Options:
+  -h, --help        Print this help page
+  -p, --parents     Create parent directories for the archive files as needed
+  -f, --force       Overwrite the archive files if a file already exists
+  -i, --in-use      Only export volumes that are in use by at least one
+                    container
+  -s, --stop        Stop all running containers before exporting, and restart
+                    them after
+
+EOF
+      ) || error "Failed to generate the usage text"
+    ;;
+    import-all)
+      TEXT=$(cat <<EOF
+
+Usage: $VACKUP all import [OPTIONS] INPUT
+
+Import multiple docker volumes from archive files
+All imported archives will be assumed to be named as the name of the volume and
+archive extension, e.g. my_docker_volume.tar.gz
+
+Parameters:
+  INPUT           The path to the intput directory where all the archive files
+                  to be imported are
+
+Options:
+  -h, --help      Print this help page
+  -s, --stop      Stop all running containers before importing, and restart
+                  them after
+
+EOF
+      ) || error "Failed to generate the usage text"
+    ;;
+    *)
+      warning "'$FOR' is not a recognized print_usage target"
+
+      if [ $STDERR -eq 1 ]; then
+        print_usage --err
+      else
+        print_usage
+      fi
+
+      TEXT=''
+    ;;
+  esac
 
   if [ $STDERR -eq 1 ]; then
     echo 1>&2 "$TEXT"
@@ -222,17 +378,25 @@ EOF
 }
 
 # Prints a warning message to STDERR in yellow
-# Flags:
-#   u, usage (optional): Print usage to STDERR after printing the warning message
+# Options:
+#   u, usage target (optional): Print usage for the specified target to STDERR after printing the warning message
 # Parameters:
 #   Message (optional, empty by default): The message to print
 warning() {
   if [ $# -gt 0 ]; then
     if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
-      USAGE=1
+      shift
+
+      if [ $# -gt 0 ]; then
+        USAGE="$1"
+      else
+        USAGE='main'
+        warning 'Wrong number of arguments in the warning function'
+      fi
+
       shift
     else
-      USAGE=0
+      USAGE=''
     fi
 
     case $# in
@@ -245,30 +409,38 @@ warning() {
       MESSAGE=": $MESSAGE"
     fi
   else
-    USAGE=0
+    USAGE=''
     MESSAGE=''
   fi
 
   printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}${MESSAGE}\n"
 
-  if [ $USAGE -eq 1 ]; then
-    print_usage --err
+  if [ -n "$USAGE" ]; then
+    print_usage --err "$USAGE"
   fi
 }
 
 # Prints an error message to STDERR in red and exits
-# Flags:
-#   u, usage (optional): Print usage to STDERR after printing the error message
+# Options:
+#   u, usage target (optional): Print usage for the specified target to STDERR after printing the error message
 # Parameters:
 #   Message (optional, empty by default): The message to print
 #   ErrorCode (optional, 1 by default): The error code to exit with
 error() {
   if [ $# -gt 0 ]; then
     if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
-      USAGE=1
+      shift
+
+      if [ $# -gt 0 ]; then
+        USAGE="$1"
+      else
+        USAGE='main'
+        warning 'Wrong number of arguments in the error function'
+      fi
+
       shift
     else
-      USAGE=0
+      USAGE=''
     fi
 
     case $# in
@@ -282,15 +454,15 @@ error() {
       MESSAGE=": $MESSAGE"
     fi
   else
-    USAGE=0
+    USAGE=''
     MESSAGE=''
     CODE=1
   fi
 
   printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}${MESSAGE}\n"
 
-  if [ $USAGE -eq 1 ]; then
-    print_usage --err
+  if [ -n "$USAGE" ]; then
+    print_usage --err "$USAGE"
   fi
 
   if [ $CALLER -eq 1 ]; then
@@ -598,13 +770,13 @@ command_export() {
         shift
 
         case "$OPTION" in
-          -h | --help) print_usage --exit ;;
+          -h | --help) print_usage --exit export ;;
           -p | --parents) PARENTS=1 ;;
           -f | --force) OVERWRITE=1 ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage "'$OPTION' is not a recognized export option" ;;
+          --*) error usage export "'$OPTION' is not a recognized export option" ;;
           -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
-          *) error usage "'$OPTION' is not a recognized export option" ;;
+          *) error usage export "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
       *) break ;;
@@ -614,7 +786,7 @@ command_export() {
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="./" ;;
     2) VOLUME_NAME="$1"; FILE_NAME="$2" ;;
-    *) error usage 'Wrong number of arguments' ;;
+    *) error usage export 'Wrong number of arguments' ;;
   esac
 
   FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.$EXTENSION")
@@ -703,11 +875,11 @@ command_import() {
         shift
 
         case "$OPTION" in
-          -h | --help) print_usage --exit ;;
+          -h | --help) print_usage --exit import ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage "'$OPTION' is not a recognized import option" ;;
+          --*) error usage import "'$OPTION' is not a recognized import option" ;;
           -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
-          *) error usage "'$OPTION' is not a recognized import option" ;;
+          *) error usage import "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
       *) break ;;
@@ -717,7 +889,7 @@ command_import() {
   case $# in
     1) VOLUME_NAME="$1"; FILE_NAME="./" ;;
     2) FILE_NAME="$1"; VOLUME_NAME="$2" ;;
-    *) error usage 'Wrong number of arguments' ;;
+    *) error usage import 'Wrong number of arguments' ;;
   esac
 
   FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.$EXTENSION")
@@ -795,14 +967,14 @@ command_all_export() {
         shift
 
         case "$OPTION" in
-          -h | --help) print_usage --exit ;;
+          -h | --help) print_usage --exit export-all ;;
           -p | --parents) ARGS="$ARGS --parents" ;;
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage "'$OPTION' is not a recognized export option" ;;
+          --*) error usage export-all "'$OPTION' is not a recognized export option" ;;
           -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
-          *) error usage "'$OPTION' is not a recognized export option" ;;
+          *) error usage export-all "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
       *) break ;;
@@ -811,7 +983,7 @@ command_all_export() {
 
   case $# in
     1) DIRECTORY="$1"; assert_is_directory ;;
-    *) error usage 'Wrong number of arguments' ;;
+    *) error usage export-all 'Wrong number of arguments' ;;
   esac
 
   if [ $INUSE -eq 1 ]; then
@@ -859,11 +1031,11 @@ command_all_import() {
         shift
 
         case "$OPTION" in
-          -h | --help) print_usage --exit ;;
+          -h | --help) print_usage --exit import-all ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage "'$OPTION' is not a recognized import option" ;;
+          --*) error usage import-all "'$OPTION' is not a recognized import option" ;;
           -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
-          *) error usage "'$OPTION' is not a recognized import option" ;;
+          *) error usage import-all "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
       *) break ;;
@@ -872,7 +1044,7 @@ command_all_import() {
 
   case $# in
     1) DIRECTORY="$1"; assert_is_directory ;;
-    *) error usage 'Wrong number of arguments' ;;
+    *) error usage import-all 'Wrong number of arguments' ;;
   esac
 
   get_volumes
@@ -922,16 +1094,16 @@ command_all() {
     shift
 
     case "$COMMAND" in
-      -h | --help | help) print_usage --exit ;;
-      --*) error usage "'$COMMAND' is not a recognized command" ;;
+      -h | --help | help) print_usage --exit all ;;
+      --*) error usage all "'$COMMAND' is not a recognized command" ;;
       -??*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
       export) command_all_export "$@"; exit 0 ;;
       import) command_all_import "$@"; exit 0 ;;
-      all | *) error usage "'$COMMAND' is not a recognized command" ;;
+      all | *) error usage all "'$COMMAND' is not a recognized command" ;;
     esac
   done
 
-  print_usage --exit
+  print_usage --exit all
 }
 
 # Redirect any output on the 3rd file descriptor to STDOUT, which is used to print messages even when STDOUT has been silenced
@@ -958,12 +1130,12 @@ while [ $# -gt 0 ]; do
     -q | --quiet) exec 3>&1 1>/dev/null ;;
     -v | --verbose) VERBOSE=1 ;;
     -H | --host) HOST=1 ;;
-    --*) error usage "'$COMMAND' is not a recognized command" ;;
+    --*) error usage main "'$COMMAND' is not a recognized command" ;;
     -??*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
     export) command_export "$@"; exit 0 ;;
     import) command_import "$@"; exit 0 ;;
     all) command_all "$@"; exit 0 ;;
-    *) error usage "'$COMMAND' is not a recognized command" ;;
+    *) error usage main "'$COMMAND' is not a recognized command" ;;
   esac
 done
 
