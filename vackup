@@ -422,26 +422,42 @@ volume_doesnot_exists() {
 }
 
 get_volumes() {
-  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
-}
+  INUSE=0
 
-get_volumes_in_use() {
-  get_volumes
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        OPTION="$1"
+        shift
 
-  VOLUMES=''
-  for VOLUME_NAME in $VOLUME_NAMES; do
-    CONTAINERS=$(docker ps -q -a -f volume="$VOLUME_NAME") || error "Failed to get the list of containers using volume $VOLUME_NAME"
-
-    if [ -n "$CONTAINERS" ]; then
-      if [ -z "$VOLUMES" ]; then
-        VOLUMES="$VOLUME_NAME"
-      else
-        VOLUMES="$VOLUMES $VOLUME_NAME"
-      fi
-    fi
+        case "$OPTION" in
+          -i | --in-use) INUSE=1 ;;
+          *) warning "'$OPTION' is not a recognized get_volumes option"
+        esac
+      ;;
+      *) break ;;
+    esac
   done
 
-  VOLUME_NAMES="$VOLUMES"
+  VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
+
+  if [ $INUSE -eq 1 ]; then
+    VOLUMES=''
+
+    for VOLUME_NAME in $VOLUME_NAMES; do
+      CONTAINERS=$(docker ps -q -a --filter volume="$VOLUME_NAME") || error "Failed to get the list of containers using volume $VOLUME_NAME"
+
+      if [ -n "$CONTAINERS" ]; then
+        if [ -z "$VOLUMES" ]; then
+          VOLUMES="$VOLUME_NAME"
+        else
+          VOLUMES="$VOLUMES $VOLUME_NAME"
+        fi
+      fi
+    done
+
+    VOLUME_NAMES="$VOLUMES"
+  fi
 }
 
 get_running_containers() {
@@ -678,7 +694,7 @@ command_all_export() {
   esac
 
   if [ $INUSE -eq 1 ]; then
-    get_volumes_in_use
+    get_volumes --in-use
   else
     get_volumes
   fi
