@@ -19,6 +19,9 @@ if [ -z "$BASH" ]; then
   BASH=''
 fi
 
+if [ -z "$VACKUP_FAILURE_SHELL" ]; then
+  VACKUP_FAILURE_SHELL=''
+fi
 if [ -z "$VACKUP_FAILURE_SCRIPT" ]; then
   VACKUP_FAILURE_SCRIPT=''
 fi
@@ -37,11 +40,15 @@ handle_error() {
   esac
 
   if [ -n "$VACKUP_FAILURE_SCRIPT" ]; then
-    if [ -n "$BASH" ]; then
-      /usr/bin/env bash "$VACKUP_FAILURE_SCRIPT" "$LINE_NUMBER" $EXIT_CODE
-    else
-      /usr/bin/env sh "$VACKUP_FAILURE_SCRIPT" "$LINE_NUMBER" $EXIT_CODE
+    if [ -z "$VACKUP_FAILURE_SHELL" ]; then
+      if [ -n "$BASH" ]; then
+        VACKUP_FAILURE_SHELL="$BASH"
+      else
+        VACKUP_FAILURE_SHELL=$(command -v sh 2> /dev/null) || 'sh'
+      fi
     fi
+
+    "$VACKUP_FAILURE_SHELL" "$VACKUP_FAILURE_SCRIPT" "$LINE_NUMBER" $EXIT_CODE
   fi
 
   exit $EXIT_CODE
