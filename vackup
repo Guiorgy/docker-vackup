@@ -4,21 +4,29 @@
 # Easily tar up a volume on a local (or remote) engine
 # Base on vackup by Bret Fisher
 # Inspired by CLIP from Lukasz Lach
+#
+# This script targets bash for better error handling, which isn't required
+# It checks the BASH variable, and falls back to POSIX compliance if not set
+# It (hopefully) works with any POSIX shell
 
+# Some shells don't support this (looking at you dash)
 if [ -z "$LINENO" ]; then
   LINENO='unknown'
 fi
 
+# Silently check if the caller command is defined
 if command -v caller 1> /dev/null 2>&1; then
   CALLER=1
 else
   CALLER=0
 fi
 
+# Check if we are in bash
 if [ -z "$BASH" ]; then
   BASH=''
 fi
 
+# Define VACKUP_FAILURE_SHELL and VACKUP_FAILURE_SCRIPT if not defined
 if [ -z "$VACKUP_FAILURE_SHELL" ]; then
   VACKUP_FAILURE_SHELL=''
 fi
@@ -26,12 +34,23 @@ if [ -z "$VACKUP_FAILURE_SCRIPT" ]; then
   VACKUP_FAILURE_SCRIPT=''
 fi
 
+# Modify shell behavior
 if [ -n "$BASH" ]; then
+  # -E: The trap on ERR is inherited by shell functions, command substitutions, and commands executed in a subshell environment
+  # -e: Exit immediately if a pipeline returns a non-zero status
+  # -u: The shell shall write a message to standard error when it tries to expand a variable that is not set and immediately exit
+  # -o pipefail: The return value of a pipeline is the value of the last (rightmost) command to exit with a non-zero status, or zero if all commands in the pipeline exit successfully
   set -Eeuo pipefail
 else
   set -eu
 fi
 
+# Executes the VACKUP_FAILURE_SCRIPT script with line number and error code as arguments using the VACKUP_FAILURE_SHELL shell and exit
+# Remark: Line number may be 'unknown' on some shells, e.g. dash
+# Executed when an error is trapped, or the error function is called
+# Parameters:
+#   LineNumber (required): The line number of the failed command
+#   ExitCode (optional): The error code of the failed command
 handle_error() {
   case $# in
     1) LINE_NUMBER=$1; EXIT_CODE=$? ;;
@@ -54,12 +73,14 @@ handle_error() {
   exit $EXIT_CODE
 }
 
+# Set up a trap
 if [ -n "$BASH" ]; then
   trap 'handle_error $LINENO' ERR
 else
   trap 'handle_error $LINENO $?' EXIT
 fi
 
+# Initialize colors for STDOUT if it's connected to a tty
 if [ -t 1 ]; then
   RESET_COLOR='\033[0m'
 
@@ -102,6 +123,7 @@ else
   BOLD_WHITE_COLOR=''
 fi
 
+# Initialize colors for STDERR if it's connected to a tty
 if [ -t 2 ]; then
   RESET_COLOR_ERR='\033[0m'
 
@@ -144,6 +166,10 @@ else
   BOLD_WHITE_COLOR_ERR=''
 fi
 
+# Prints usage and exits if necessary
+# Flags:
+#   --err (optional): Print to STDERR instead of STDOUT
+#   --exit (optional): Exit after printing usage. If --err is also set, exit with the error code 1
 print_usage() {
   STDERR=0
   EXIT=0
@@ -195,6 +221,11 @@ EOF
   fi
 }
 
+# Prints a warning message to STDERR in yellow
+# Flags:
+#   u, usage (optional): Print usage to STDERR after printing the warning message
+# Parameters:
+#   Message (optional, empty by default): The message to print
 warning() {
   if [ $# -gt 0 ]; then
     if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
@@ -225,6 +256,12 @@ warning() {
   fi
 }
 
+# Prints an error message to STDERR in red and exits
+# Flags:
+#   u, usage (optional): Print usage to STDERR after printing the error message
+# Parameters:
+#   Message (optional, empty by default): The message to print
+#   ErrorCode (optional, 1 by default): The error code to exit with
 error() {
   if [ $# -gt 0 ]; then
     if [ "$1" = 'u' ] || [ "$1" = 'usage' ]; then
@@ -264,6 +301,11 @@ error() {
   fi
 }
 
+# Prints an information message to STDOUT in the specified color
+# Flags:
+#   --{no-color,black,red,green,yellow,blue,purple,cyan,white} (optional, --blue by default): The color of the output
+# Parameters:
+#   Message (optional, empty by default): The message to print
 information() {
   COLOR="$BLUE_COLOR"
 
@@ -298,6 +340,12 @@ information() {
   printf "$MESSAGE\n"
 }
 
+# Splits a string into individual characters, skipping the specified number of characters from the start
+# Remark: Iterating over the resulting sequence using a normal for loop will drop all space characters
+# Parameters:
+#   Skip (optional, 0 by default): The number of characters to skip
+#   String (required): The string to split into separate characters
+# Return: A newline separated sequence of characters from the input string
 chars() {
   case $# in
     1) STR="$1" ;;
@@ -305,11 +353,13 @@ chars() {
       STR="$2"
       SKIP="$1"
 
+      # Make sure SKIP is not larger than the length of the string
       LEN="${#STR}"
       if [ $LEN -lt $SKIP ]; then
         SKIP="$LEN"
       fi
 
+      # Remove a single character from the start of the string one character at a time
       while [ "$SKIP" -gt 0 ]; do
         STR="${STR#?}"
         SKIP=$((SKIP - 1))
@@ -319,8 +369,10 @@ chars() {
   esac
 
   while [ -n "$STR" ]; do
+    # Remove the first character and store the remaining string in a temporary variable
     REST="${STR#?}"
 
+    # Remove REST (everything but the first character) from the end of the string, resulting in the first character only
     CHAR="${STR%"$REST"}"
     echo "$CHAR"
 
@@ -328,6 +380,12 @@ chars() {
   done
 }
 
+# Prefixes every element in a sequence with the specified prefix
+# Remark: Iterating over the resulting sequence using a normal for loop will split by any spaces in the prefix
+# Parameters:
+#   Prefix (required): The prefix to prepend to the start of every element
+#   Elements.. (required): The elements to prepend the prefix to
+# Return: A newline separated list of prefixed elements
 prefix_all() {
   case $# in
     0 | 1) LIST=''; warning 'Wrong number of arguments in the prefix_all function' ;;
@@ -336,10 +394,15 @@ prefix_all() {
 
   for ITEM in $LIST; do
     ITEM="$PREFIX$ITEM"
+    # Use printf to handle cases where the prefix is a dash ('-') and the item is either 'n', 'e' or 'E'
     printf '%s\n' "$ITEM"
   done
 }
 
+# Determines the absolute path to the parent directory
+# Parameters:
+#   Path (required): The relative or absolute path to a file or directory
+# Return: Absolute path to the parent directory, or root if the input path is already root ('/')
 fulldirname() {
   DIRECTORY=$(dirname "$1") || error "Failed to get the parent directory for $1"
 
@@ -352,6 +415,10 @@ fulldirname() {
   echo "$DIRECTORY"
 }
 
+# Ensures that the specified path is not an existing file, and appends a slash if missing
+# Remark: This function uses and modifies the global DIRECTORY variable
+# Parameters:
+#   Path (optional, global DIRECTORY variable by default): The path to be tested
 assert_is_directory() {
   if [ $# -gt 0 ]; then
     DIRECTORY="$1"
@@ -369,6 +436,11 @@ assert_is_directory() {
   esac
 }
 
+# Checks if the specified path ends on a slash, or is an existing directory and appends the specified file; Otherwise, leaves the path as is
+# Parameters:
+#   Path (required): Path to a directory or file
+#   File (required): The file name to append to the input path if it's a directory
+# Return: If the input path is a directory, the combined path of the directory with the imput file; Otherwise, the original path
 append_file_if_dir() {
   DIR_OR_FILE="$1"
   FILE="$2"
@@ -385,6 +457,12 @@ append_file_if_dir() {
   esac
 }
 
+# Checks if the specified docker volume exists, and prints a warning if it doesn't
+# Flags:
+#   --error (optional): Exit with an error if the volume doesn't exist. Takes priority over the --create flag
+#   --create (optional): Create a new volume if it doesn't exist
+# Parameters:
+#   VolumeName (optional, global VOLUME_NAME variable by default): The docker volume to be checked
 volume_doesnot_exists() {
   ERROR=0
   CREATE=0
@@ -421,6 +499,10 @@ volume_doesnot_exists() {
   fi
 }
 
+# Gets a space separated list of docker volumes
+# Remark: This function uses and modifies the global VOLUME_NAMES variable
+# Flags:
+#   -i, --in-use (optional): Only get volumes in use by at least one container
 get_volumes() {
   INUSE=0
 
@@ -460,6 +542,10 @@ get_volumes() {
   fi
 }
 
+# Gets a space separated list of running container ids
+# Remark: This function uses and modifies the global CONTAINERS variable
+# Parameters:
+#   VolumeName (optional): Only get containers that have the specified volume as a mount point
 get_running_containers() {
   if [ $# -gt 0 ]; then
     VOLUME_NAME="$1"
@@ -469,6 +555,8 @@ get_running_containers() {
   fi
 }
 
+# Stops containers defined in the global CONTAINERS variable
+# Remark: This function uses the global CONTAINERS variable
 stop_containers() {
   if [ -n "$CONTAINERS" ]; then
     information 'Stopping containers' "$CONTAINERS"
@@ -476,6 +564,8 @@ stop_containers() {
   fi
 }
 
+# Restarts containers defined in the global CONTAINERS variable
+# Remark: This function uses the global CONTAINERS variable
 restart_containers() {
   if [ -n "$CONTAINERS" ]; then
     information 'Restarting containers' "$CONTAINERS"
@@ -483,8 +573,19 @@ restart_containers() {
   fi
 }
 
+# The default extension of the exported/imported archive
 EXTENSION='tar.gz'
 
+# Exports the specified docker volume into an archive file
+# Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
+# Flags:
+#   -h, --help (optional): Print the usage page
+#   -p, --parents (optional): Create parent directories for the archive file as needed
+#   -f, --force (optional): Overwrite the archive file if a file already exists
+#   -s, --stop (optional): Stop running containers that have the specified volume as a mount point before exporting, and restart them after
+# Parameters:
+#   VolumeName (required): The docker volume to export
+#   Output (optional, ./ by default): The path to the output archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
 command_export() {
   PARENTS=0
   OVERWRITE=0
@@ -555,7 +656,7 @@ command_export() {
   if [ $VERBOSE -eq 1 ]; then
     TAR_OPTIONS="${TAR_OPTIONS}v"
   fi
-  TAR_OPTIONS="${TAR_OPTIONS}f"
+  TAR_OPTIONS="${TAR_OPTIONS}f" # Make sure the f option is last, since that's what GNU tar expects
 
   information 'Exporting volume' "$VOLUME_NAME"
   if [ $HOST -eq 1 ]; then
@@ -584,6 +685,14 @@ command_export() {
   information --green 'Success' "Volume $VOLUME_NAME tar'ed into file '$FILE_NAME'"
 }
 
+# Imports the specified docker volume from an archive file
+# Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
+# Flags:
+#   -h, --help (optional): Print the usage page
+#   -s, --stop (optional): Stop running containers that have the specified volume as a mount point before importing, and restart them after
+# Parameters:
+#   Input (optional, ./ by default): The path to the intput archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
+#   VolumeName (required): The docker volume to import
 command_import() {
   STOP=0
 
@@ -633,7 +742,7 @@ command_import() {
   if [ $VERBOSE -eq 1 ]; then
     TAR_OPTIONS="${TAR_OPTIONS}v"
   fi
-  TAR_OPTIONS="${TAR_OPTIONS}f"
+  TAR_OPTIONS="${TAR_OPTIONS}f" # Make sure the f option is last, since that's what GNU tar expects
 
   information 'Importing volume' "$VOLUME_NAME"
   if [ $HOST -eq 1 ]; then
@@ -662,6 +771,18 @@ command_import() {
   information --green 'Success' "Archive '$FILE_NAME' unpacked into volume $VOLUME_NAME"
 }
 
+# Exports all docker volume into archive files
+# Remarks:
+#   Supports clustered flags, e.g. -abc instead of -a -b -c
+#   All exported archives will be named as the name of the volume and archive extension
+# Flags:
+#   -h, --help (optional): Print the usage page
+#   -p, --parents (optional): Create parent directories for the archive files as needed
+#   -f, --force (optional): Overwrite the archive files if a file already exists
+#   -i, --in-use (optional): Only export volumes that are in use by at least one container
+#   -s, --stop (optional): Stop all running containers before exporting, and restart them after
+# Parameters:
+#   Output (required): The path to the output directory where the archive files will be exported to
 command_all_export() {
   ARGS=''
   INUSE=0
@@ -718,6 +839,15 @@ command_all_export() {
   information --green 'Success' "Volumes [$VOLUME_NAMES] tar'ed into archive files"
 }
 
+# Imports all docker volume from archive files
+# Remarks:
+#   Supports clustered flags, e.g. -abc instead of -a -b -c
+#   All imported archives will be assumed to be named as the name of the volume and archive extension
+# Flags:
+#   -h, --help (optional): Print the usage page
+#   -s, --stop (optional): Stop all running containers before importing, and restart them after
+# Parameters:
+#   Input (required): The path to the intput directory where all the archive files to be imported are
 command_all_import() {
   ARGS=''
   STOP=0
@@ -780,6 +910,12 @@ command_all_import() {
   information --green 'Success' "Archives unpacked into volumes [$SUCCESSFUL]"
 }
 
+# Command for importing/exporting all volumes
+# Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
+# Flags:
+#   -h, --help (optional): Print the usage page
+# Parameters:
+#   Subcommand (required): One of help, export or import. All subsequent arguments will be forwarded to the specified subcommand
 command_all() {
   while [ $# -gt 0 ]; do
     COMMAND="$1"
@@ -798,10 +934,21 @@ command_all() {
   print_usage --exit
 }
 
+# Redirect any output on the 3rd file descriptor to STDOUT, which is used to print messages even when STDOUT has been silenced
 exec 3>&1
+
 VERBOSE=0
 HOST=0
 
+# Argument parsing
+# Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
+# Flags:
+#   -h, --help (optional): Print the usage page
+#   -q, --quiet (optional): Silence the outputs to STDOUT, except if the usage page is explicitly requested
+#   -v, --verbose (optional): Verbose printing
+#   -H, --host (optional): Do the export/import by running the archive program on the host instead of a container
+# Parameters:
+#   Command (required): One of help, export, import or all. All subsequent arguments will be forwarded to the specified command
 while [ $# -gt 0 ]; do
   COMMAND="$1"
   shift
