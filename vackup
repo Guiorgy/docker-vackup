@@ -770,12 +770,11 @@ command_export() {
         shift
 
         case "$OPTION" in
+          -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit export ;;
           -p | --parents) PARENTS=1 ;;
           -f | --force) OVERWRITE=1 ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage export "'$OPTION' is not a recognized export option" ;;
-          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           *) error usage export "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -875,10 +874,9 @@ command_import() {
         shift
 
         case "$OPTION" in
+          -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit import ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage import "'$OPTION' is not a recognized import option" ;;
-          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           *) error usage import "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
@@ -967,13 +965,12 @@ command_all_export() {
         shift
 
         case "$OPTION" in
+          -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit export-all ;;
           -p | --parents) ARGS="$ARGS --parents" ;;
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage export-all "'$OPTION' is not a recognized export option" ;;
-          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           *) error usage export-all "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -1031,10 +1028,9 @@ command_all_import() {
         shift
 
         case "$OPTION" in
+          -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit import-all ;;
           -s | --stop) STOP=1 ;;
-          --*) error usage import-all "'$OPTION' is not a recognized import option" ;;
-          -??*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           *) error usage import-all "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
@@ -1094,9 +1090,8 @@ command_all() {
     shift
 
     case "$COMMAND" in
+      -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
       -h | --help | help) print_usage --exit all ;;
-      --*) error usage all "'$COMMAND' is not a recognized command" ;;
-      -??*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
       export) command_all_export "$@"; exit 0 ;;
       import) command_all_import "$@"; exit 0 ;;
       all | *) error usage all "'$COMMAND' is not a recognized command" ;;
@@ -1126,12 +1121,11 @@ while [ $# -gt 0 ]; do
   shift
 
   case "$COMMAND" in
+    -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
     -h | --help | help) print_usage --exit ;;
     -q | --quiet) exec 3>&1 1>/dev/null ;;
     -v | --verbose) VERBOSE=1 ;;
     -H | --host) HOST=1 ;;
-    --*) error usage main "'$COMMAND' is not a recognized command" ;;
-    -??*) set -- $(prefix_all - $(chars 1 "$COMMAND")) "$@" ;;
     export) command_export "$@"; exit 0 ;;
     import) command_import "$@"; exit 0 ;;
     all) command_all "$@"; exit 0 ;;
