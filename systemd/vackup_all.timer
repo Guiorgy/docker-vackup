@@ -1,0 +1,9 @@
+[Unit]
+Description=vackup_all service timer
+
+[Timer]
+OnCalendar=*-*-* 6:00:00
+Unit=vackup_all.service
+
+[Install]
+WantedBy=timers.target

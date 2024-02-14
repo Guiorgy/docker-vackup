@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup Docker volumes using vackup
+Wants=vackup_all.timer
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/vackup --quiet all export --in-use --stop --parents --force {PATH-TO-BACKUP-DIRECTORY}
+
+[Install]
+WantedBy=default.target
