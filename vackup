@@ -317,7 +317,9 @@ Options:
   -f, --force       Overwrite the archive files if a file already exists
   -i, --in-use      Only export volumes that are in use by at least one
                     container
-  -s, --stop        Stop all running containers before exporting, and restart
+  -s, --stop        Stop the running containers that mount a volume before
+                    exporting, and restart them after
+  -S, --stop-all    Stop all running containers before exporting, and restart
                     them after
 
 EOF
@@ -338,8 +340,10 @@ Parameters:
 
 Options:
   -h, --help      Print this help page
-  -s, --stop      Stop all running containers before importing, and restart
-                  them after
+  -s, --stop        Stop the running containers that mount a volume before
+                    importing, and restart them after
+  -S, --stop-all    Stop all running containers before importing, and restart
+                    them after
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -717,13 +721,22 @@ get_volumes() {
 # Gets a space separated list of running container ids
 # Remark: This function uses and modifies the global CONTAINERS variable
 # Parameters:
-#   VolumeName (optional): Only get containers that have the specified volume as a mount point
+#   VolumeNames.. (optional): Only get containers that have one of the specified volumes as a mount point
 get_running_containers() {
-  if [ $# -gt 0 ]; then
+  if [ $# -eq 0 ]; then
+    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
+  elif [ $# -eq 1 ]; then
     VOLUME_NAME="$1"
     CONTAINERS=$(docker ps -q --filter volume="$VOLUME_NAME" | tr '\n' ' ' | awk '{$1=$1;print}') || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
   else
-    CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
+    CONTAINERS=''
+    for VOLUME_NAME in "$@"; do
+      TMP=$(docker ps -q --filter volume="$VOLUME_NAME") || error "Failed to get the list of running containers using the $VOLUME_NAME volume"
+      CONTAINERS="$CONTAINERS $TMP"
+    done
+    CONTAINERS=$(echo "$CONTAINERS" | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to remove line separators, and leading and trailing spaces from the list of containers'
+
+    CONTAINERS=$(echo "$CONTAINERS" | tr ' ' '\n' | sort -u | tr '\n' ' ') || error 'Failed to remove duplicates from the list of containers'
   fi
 }
 
@@ -950,13 +963,15 @@ command_import() {
 #   -p, --parents (optional): Create parent directories for the archive files as needed
 #   -f, --force (optional): Overwrite the archive files if a file already exists
 #   -i, --in-use (optional): Only export volumes that are in use by at least one container
-#   -s, --stop (optional): Stop all running containers before exporting, and restart them after
+#   -s, --stop (optional): Stop the running containers that mount a volume before exporting, and restart them after
+#   -S, --stop-all (optional): Stop all running containers before exporting, and restart them after
 # Parameters:
 #   Output (required): The path to the output directory where the archive files will be exported to
 command_all_export() {
   ARGS=''
   INUSE=0
   STOP=0
+  STOP_ALL=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -971,6 +986,7 @@ command_all_export() {
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
+          -S | --stop-all) STOP_ALL=1 ;;
           *) error usage export-all "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -989,8 +1005,13 @@ command_all_export() {
     get_volumes
   fi
 
-  if [ $STOP -eq 1 ]; then
-    get_running_containers
+  if [ $STOP -eq 1 ] || [ $STOP_ALL -eq 1 ]; then
+    if [ $STOP -eq 1 ]; then
+      get_running_containers $VOLUME_NAMES
+    else
+      get_running_containers
+    fi
+
     stop_containers
   else
     CONTAINERS=''
@@ -1014,12 +1035,14 @@ command_all_export() {
 #   All imported archives will be assumed to be named as the name of the volume and archive extension
 # Flags:
 #   -h, --help (optional): Print the usage page
-#   -s, --stop (optional): Stop all running containers before importing, and restart them after
+#   -s, --stop (optional): Stop the running containers that mount a volume before importing, and restart them after
+#   -S, --stop-all (optional): Stop all running containers before importing, and restart them after
 # Parameters:
 #   Input (required): The path to the intput directory where all the archive files to be imported are
 command_all_import() {
   ARGS=''
   STOP=0
+  STOP_ALL=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1031,6 +1054,7 @@ command_all_import() {
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit import-all ;;
           -s | --stop) STOP=1 ;;
+          -S | --stop-all) STOP_ALL=1 ;;
           *) error usage import-all "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
@@ -1045,8 +1069,13 @@ command_all_import() {
 
   get_volumes
 
-  if [ $STOP -eq 1 ]; then
-    get_running_containers
+  if [ $STOP -eq 1 ] || [ $STOP_ALL -eq 1 ]; then
+    if [ $STOP -eq 1 ]; then
+      get_running_containers $VOLUME_NAMES
+    else
+      get_running_containers
+    fi
+
     stop_containers
   else
     CONTAINERS=''
