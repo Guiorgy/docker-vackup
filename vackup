@@ -958,7 +958,7 @@ command_all_export() {
   INUSE=0
   STOP=0
 
-  while [ $# -ne 1 ]; do
+  while [ $# -ne 0 ]; do
     case "$1" in
       -*)
         OPTION="$1"
@@ -1021,7 +1021,7 @@ command_all_import() {
   ARGS=''
   STOP=0
 
-  while [ $# -ne 1 ]; do
+  while [ $# -ne 0 ]; do
     case "$1" in
       -*)
         OPTION="$1"
