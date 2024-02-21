@@ -419,7 +419,7 @@ warning() {
     MESSAGE=''
   fi
 
-  printf 1>&2 "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}${MESSAGE}\n"
+  printf 1>&2 '%b' "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}${MESSAGE}\n"
 
   if [ -n "$USAGE" ]; then
     print_usage --err "$USAGE"
@@ -465,7 +465,7 @@ error() {
     CODE=1
   fi
 
-  printf 1>&2 "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}${MESSAGE}\n"
+  printf 1>&2 '%b' "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}${MESSAGE}\n"
 
   if [ -n "$USAGE" ]; then
     print_usage --err "$USAGE"
@@ -515,7 +515,7 @@ information() {
     *) MESSAGE=$1; warning 'Wrong number of arguments in the information function' ;;
   esac
 
-  printf "$MESSAGE\n"
+  printf '%b' "$MESSAGE\n"
 }
 
 # Splits a string into individual characters, skipping the specified number of characters from the start
