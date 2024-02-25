@@ -70,10 +70,10 @@ handle_error() {
       fi
     fi
 
-    "$VACKUP_FAILURE_SHELL" "$VACKUP_FAILURE_SCRIPT" "$LINE_NUMBER" $EXIT_CODE
+    "$VACKUP_FAILURE_SHELL" "$VACKUP_FAILURE_SCRIPT" "$LINE_NUMBER" "$EXIT_CODE"
   fi
 
-  exit $EXIT_CODE
+  exit "$EXIT_CODE"
 }
 
 # Set up a trap
@@ -373,7 +373,7 @@ EOF
     if [ $STDERR -eq 1 ]; then
       if [ $CALLER -eq 1 ]; then
         LINE_NUMBER=$(caller | awk '{ print $1 }') || LINE_NUMBER='unknown'
-        handle_error $LINE_NUMBER 1
+        handle_error "$LINE_NUMBER" 1
       else
         exit 1
       fi
@@ -473,9 +473,9 @@ error() {
 
   if [ $CALLER -eq 1 ]; then
     LINE_NUMBER=$(caller | awk '{ print $1 }') || LINE_NUMBER='unknown'
-    handle_error $LINE_NUMBER $CODE
+    handle_error "$LINE_NUMBER" "$CODE"
   else
-    exit $CODE
+    exit "$CODE"
   fi
 }
 
@@ -567,7 +567,7 @@ chars() {
 prefix_all() {
   case $# in
     0 | 1) LIST=''; warning 'Wrong number of arguments in the prefix_all function' ;;
-    *) PREFIX="$1"; shift; LIST="$@" ;;
+    *) PREFIX="$1"; shift; LIST="$*" ;;
   esac
 
   for ITEM in $LIST; do
