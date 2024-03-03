@@ -326,6 +326,21 @@ Options:
                     -S, --stop-all flag
   -S, --stop-all    Stop all running containers before exporting, and restart
                     them after
+  -d, --date        Add the current date in the yyyy-MM-dd_HH-mm-ss ISOish
+                    format to the start of the archive file names. If the flag
+                    is passed in a second time, append the date to the end of
+                    the archive file names instead. Mutually exclusive with the
+                    -D, --date-dir flag
+  -D, --date-dir    Use the current date in the yyyy-MM-dd_HH-mm-ss ISOish
+                    format as the output directory where the archive files will
+                    be exported to. This directory will be created inside the
+                    directory defined with the OUTPUT parameter. If the flag is
+                    passed in a second time, append the date to the start of
+                    the OUTPUT directory name, instead of creating a new
+                    directory inside the OUTPUT directory. If the flag is
+                    passed in a third time, append the date to the end of the
+                    OUTPUT directory name instead. Mutually exclusive with the
+                    -d, --date flag
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -983,13 +998,24 @@ command_import() {
 #   -s, --stop: Stop the running containers that mount a volume before exporting, and restart them after.
 #               Takes priority over the -S, --stop-all flag
 #   -S, --stop-all: Stop all running containers before exporting, and restart them after
+#   {-d, --date|-D, --date-dir}:
+#     -d, --date: Add the current date in the yyyy-MM-dd_HH-mm-ss ISOish format to the start of the archive file names.
+#                 If the flag is passed in a second time, append the date to the end of the archive file names instead
+#     -D, --date-dir: Use the current date in the yyyy-MM-dd_HH-mm-ss ISOish format as the output directory where the archive files will be exported to.
+#                     This directory will be created inside the directory defined with the Output parameter.
+#                     If the flag is passed in a second time, append the date to the start of the output directory name, instead of creating a new directory inside the output directory.
+#                     If the flag is passed in a third time, append the date to the end of the output directory name instead
 # Parameters:
 #   Output (required): The path to the output directory where the archive files will be exported to
 command_all_export() {
   ARGS=''
+  PARENTS=0
   INUSE=0
   STOP=0
   STOP_ALL=0
+  DATE=0
+  DATE_DIR=0
+  CURRENT_DATE=''
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1000,11 +1026,24 @@ command_all_export() {
         case "$OPTION" in
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit export-all ;;
-          -p | --parents) ARGS="$ARGS --parents" ;;
+          -p | --parents) PARENTS=1; ARGS="$ARGS --parents" ;;
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
           -S | --stop-all) STOP_ALL=1 ;;
+          -d | --date | -D | --date-dir)
+            if [ -z "$CURRENT_DATE" ]; then
+              CURRENT_DATE=$(date +'%Y-%m-%d_%H-%M-%S') || error 'Failed to get the current date'
+            fi
+
+            if [ "$OPTION" = '-d' -o "$OPTION" = '--date' ] && [ $DATE_DIR -eq 0 ] && [ $DATE -lt 2 ]; then
+              DATE=$((DATE + 1))
+            elif [ "$OPTION" = '-D' -o "$OPTION" = '--date-dir' ] && [ $DATE -eq 0 ] && [ $DATE_DIR -lt 3 ]; then
+              DATE_DIR=$((DATE_DIR + 1))
+            else
+              warning usage export-all "'$OPTION' passed too many times"
+            fi
+          ;;
           *) error usage export-all "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -1013,8 +1052,21 @@ command_all_export() {
   done
 
   case $# in
-    1) DIRECTORY="$1"; assert_is_directory ;;
+    1) DIRECTORY="$1" ;;
     *) error usage export-all 'Wrong number of arguments' ;;
+  esac
+
+  if [ $DATE_DIR -ge 2 ]; then
+    DIR_NAME=$(absolute_basename "$DIRECTORY") || error "Failed to get the base directory name to $DIRECTORY"
+    PARENT="$(absolute_dirname "$DIRECTORY")/" || error "Faile to get the parent path to $DIRECTORY"
+    DIRECTORY="$PARENT"
+  fi
+  case $DATE_DIR in
+    0) assert_is_directory ;;
+    1) assert_is_directory; DIRECTORY="${DIRECTORY}${CURRENT_DATE}/" ;;
+    2) DIRECTORY="${DIRECTORY}${CURRENT_DATE}_${DIR_NAME}"; assert_is_directory ;;
+    3) DIRECTORY="${DIRECTORY}${DIR_NAME}_${CURRENT_DATE}"; assert_is_directory ;;
+    *) error "Impossible state of 'DATE_DIR': '$DATE_DIR'" ;;
   esac
 
   if [ $INUSE -eq 1 ]; then
@@ -1035,8 +1087,29 @@ command_all_export() {
     CONTAINERS=''
   fi
 
+  if [ $DATE_DIR -ne 0 ]; then
+    if [ $PARENTS -eq 1 ]; then
+      if ! mkdir -p "$DIRECTORY"; then
+        error "Failed to make parent directories for '$DIRECTORY'"
+      fi
+    else
+      if ! mkdir "$DIRECTORY"; then
+        error "Failed to make directory '$DIRECTORY'"
+      fi
+    fi
+
+    information 'Output directory' "$DIRECTORY"
+  fi
+
   for VOLUME_NAME in $VOLUME_NAMES; do
-    if ! (command_export $ARGS "$VOLUME_NAME" "$DIRECTORY"); then
+    case $DATE in
+      0) FILE_NAME="$DIRECTORY" ;;
+      1) FILE_NAME="${DIRECTORY}${CURRENT_DATE}_${VOLUME_NAME}${EXTENSION}" ;;
+      2) FILE_NAME="${DIRECTORY}${VOLUME_NAME}_${CURRENT_DATE}${EXTENSION}" ;;
+      *) error "Impossible state of 'DATE': '$DATE'" ;;
+    esac
+
+    if ! (command_export $ARGS "$VOLUME_NAME" "$FILE_NAME"); then
       restart_containers
       error "Failed during $VOLUME_NAME volume export"
     fi
