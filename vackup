@@ -386,7 +386,7 @@ EOF
 
 # Prints a warning message to STDERR in yellow
 # Options:
-#   u, usage target: Print usage for the specified target to STDERR after printing the warning message
+#   {u|usage} Target: Print usage for the specified target to STDERR after printing the warning message
 # Parameters:
 #   Message (optional, empty by default): The message to print
 warning() {
@@ -429,7 +429,7 @@ warning() {
 
 # Prints an error message to STDERR in red and exits
 # Options:
-#   u, usage target: Print usage for the specified target to STDERR after printing the error message
+#   {u|usage} Target: Print usage for the specified target to STDERR after printing the error message
 # Parameters:
 #   Message (optional, empty by default): The message to print
 #   ErrorCode (optional, 1 by default): The error code to exit with
