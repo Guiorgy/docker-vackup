@@ -53,7 +53,7 @@ fi
 # Executed when an error is trapped, or the error function is called
 # Parameters:
 #   LineNumber (required): The line number of the failed command
-#   ExitCode (optional): The error code of the failed command
+#   ExitCode: The error code of the failed command
 handle_error() {
   case $# in
     1) LINE_NUMBER=$1; EXIT_CODE=$? ;;
@@ -171,8 +171,8 @@ fi
 
 # Prints usage and exits if necessary
 # Flags:
-#   --err (optional): Print to STDERR instead of STDOUT
-#   --exit (optional): Exit after printing usage. If --err is also set, exit with the error code 1
+#   --err: Print to STDERR instead of STDOUT
+#   --exit: Exit after printing usage. If --err is also set, exit with the error code 1
 # Parameters:
 #   For (optional, main by default): One of main, export, import, all, export-all or import-all
 print_usage() {
@@ -385,7 +385,7 @@ EOF
 
 # Prints a warning message to STDERR in yellow
 # Options:
-#   u, usage target (optional): Print usage for the specified target to STDERR after printing the warning message
+#   u, usage target: Print usage for the specified target to STDERR after printing the warning message
 # Parameters:
 #   Message (optional, empty by default): The message to print
 warning() {
@@ -428,7 +428,7 @@ warning() {
 
 # Prints an error message to STDERR in red and exits
 # Options:
-#   u, usage target (optional): Print usage for the specified target to STDERR after printing the error message
+#   u, usage target: Print usage for the specified target to STDERR after printing the error message
 # Parameters:
 #   Message (optional, empty by default): The message to print
 #   ErrorCode (optional, 1 by default): The error code to exit with
@@ -481,7 +481,7 @@ error() {
 
 # Prints an information message to STDOUT in the specified color
 # Flags:
-#   --{no-color,black,red,green,yellow,blue,purple,cyan,white} (optional, --blue by default): The color of the output
+#   --{no-color,black,red,green,yellow,blue,purple,cyan,white} (--blue by default): The color of the output
 # Parameters:
 #   Message (optional, empty by default): The message to print
 information() {
@@ -637,8 +637,8 @@ append_file_if_dir() {
 
 # Checks if the specified docker volume exists, and prints a warning if it doesn't
 # Flags:
-#   --error (optional): Exit with an error if the volume doesn't exist. Takes priority over the --create flag
-#   --create (optional): Create a new volume if it doesn't exist
+#   --error: Exit with an error if the volume doesn't exist. Takes priority over the --create flag
+#   --create: Create a new volume if it doesn't exist
 # Parameters:
 #   VolumeName (optional, global VOLUME_NAME variable by default): The docker volume to be checked
 volume_doesnot_exists() {
@@ -680,7 +680,7 @@ volume_doesnot_exists() {
 # Gets a space separated list of docker volumes
 # Remark: This function uses and modifies the global VOLUME_NAMES variable
 # Flags:
-#   -i, --in-use (optional): Only get volumes in use by at least one container
+#   -i, --in-use: Only get volumes in use by at least one container
 get_volumes() {
   INUSE=0
 
@@ -723,7 +723,7 @@ get_volumes() {
 # Gets a space separated list of running container ids
 # Remark: This function uses and modifies the global CONTAINERS variable
 # Parameters:
-#   VolumeNames.. (optional): Only get containers that have one of the specified volumes as a mount point
+#   VolumeNames..: Only get containers that have one of the specified volumes as a mount point
 get_running_containers() {
   if [ $# -eq 0 ]; then
     CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
@@ -766,10 +766,10 @@ EXTENSION='tar.gz'
 # Exports the specified docker volume into an archive file
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help (optional): Print the usage page
-#   -p, --parents (optional): Create parent directories for the archive file as needed
-#   -f, --force (optional): Overwrite the archive file if a file already exists
-#   -s, --stop (optional): Stop running containers that have the specified volume as a mount point before exporting, and restart them after
+#   -h, --help: Print the usage page
+#   -p, --parents: Create parent directories for the archive file as needed
+#   -f, --force: Overwrite the archive file if a file already exists
+#   -s, --stop: Stop running containers that have the specified volume as a mount point before exporting, and restart them after
 # Parameters:
 #   VolumeName (required): The docker volume to export
 #   Output (optional, ./ by default): The path to the output archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
@@ -874,8 +874,8 @@ command_export() {
 # Imports the specified docker volume from an archive file
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help (optional): Print the usage page
-#   -s, --stop (optional): Stop running containers that have the specified volume as a mount point before importing, and restart them after
+#   -h, --help: Print the usage page
+#   -s, --stop: Stop running containers that have the specified volume as a mount point before importing, and restart them after
 # Parameters:
 #   Input (optional, ./ by default): The path to the intput archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
 #   VolumeName (required): The docker volume to import
@@ -961,12 +961,12 @@ command_import() {
 #   Supports clustered flags, e.g. -abc instead of -a -b -c
 #   All exported archives will be named as the name of the volume and archive extension
 # Flags:
-#   -h, --help (optional): Print the usage page
-#   -p, --parents (optional): Create parent directories for the archive files as needed
-#   -f, --force (optional): Overwrite the archive files if a file already exists
-#   -i, --in-use (optional): Only export volumes that are in use by at least one container
-#   -s, --stop (optional): Stop the running containers that mount a volume before exporting, and restart them after. Takes priority over the -S, --stop-all flag
-#   -S, --stop-all (optional): Stop all running containers before exporting, and restart them after
+#   -h, --help: Print the usage page
+#   -p, --parents: Create parent directories for the archive files as needed
+#   -f, --force: Overwrite the archive files if a file already exists
+#   -i, --in-use: Only export volumes that are in use by at least one container
+#   -s, --stop: Stop the running containers that mount a volume before exporting, and restart them after. Takes priority over the -S, --stop-all flag
+#   -S, --stop-all: Stop all running containers before exporting, and restart them after
 # Parameters:
 #   Output (required): The path to the output directory where the archive files will be exported to
 command_all_export() {
@@ -1036,9 +1036,9 @@ command_all_export() {
 #   Supports clustered flags, e.g. -abc instead of -a -b -c
 #   All imported archives will be assumed to be named as the name of the volume and archive extension
 # Flags:
-#   -h, --help (optional): Print the usage page
-#   -s, --stop (optional): Stop the running containers that mount a volume before importing, and restart them after. Takes priority over the -S, --stop-all flag
-#   -S, --stop-all (optional): Stop all running containers before importing, and restart them after
+#   -h, --help: Print the usage page
+#   -s, --stop: Stop the running containers that mount a volume before importing, and restart them after. Takes priority over the -S, --stop-all flag
+#   -S, --stop-all: Stop all running containers before importing, and restart them after
 # Parameters:
 #   Input (required): The path to the intput directory where all the archive files to be imported are
 command_all_import() {
@@ -1112,7 +1112,7 @@ command_all_import() {
 # Command for importing/exporting all volumes
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help (optional): Print the usage page
+#   -h, --help: Print the usage page
 # Parameters:
 #   Subcommand (required): One of help, export or import. All subsequent arguments will be forwarded to the specified subcommand
 command_all() {
@@ -1141,10 +1141,10 @@ HOST=0
 # Argument parsing
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help (optional): Print the usage page
-#   -q, --quiet (optional): Silence the outputs to STDOUT, except if the usage page is explicitly requested
-#   -v, --verbose (optional): Verbose printing
-#   -H, --host (optional): Do the export/import by running the archive program on the host instead of a container
+#   -h, --help: Print the usage page
+#   -q, --quiet: Silence the outputs to STDOUT, except if the usage page is explicitly requested
+#   -v, --verbose: Verbose printing
+#   -H, --host: Do the export/import by running the archive program on the host instead of a container
 # Parameters:
 #   Command (required): One of help, export, import or all. All subsequent arguments will be forwarded to the specified command
 while [ $# -gt 0 ]; do
