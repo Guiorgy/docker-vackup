@@ -1150,6 +1150,19 @@ command_all() {
   print_usage --exit all
 }
 
+# Determine the current effective user ID
+if [ -z "$BASH" ]; then
+  EUID=$(id -u) || {
+    warning 'Failed to determine the current effective user ID. Assuming 0'
+    EUID=0
+  }
+fi
+
+# Make sure we are running as root (ID 0)
+if [ $EUID -ne 0 ]; then
+  error 'This script must be run as root'
+fi
+
 # Redirect any output on the 3rd file descriptor to STDOUT, which is used to print messages even when STDOUT has been silenced
 exec 3>&1
 
