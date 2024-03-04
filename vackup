@@ -591,16 +591,10 @@ absolute_path() {
 # Parameters:
 #   Path (required): The relative or absolute path to a file or directory
 # Return: Absolute path to the parent directory, or root if the input path is already root ('/')
-fulldirname() {
-  DIRECTORY=$(dirname "$1") || error "Failed to get the parent directory for $1"
-
-  case "$DIRECTORY" in
-    /*) ;;
-    *) DIRECTORY="$(pwd)/$DIRECTORY" ;;
-  esac
-  DIRECTORY=$(absolute_path "$DIRECTORY")
-
-  echo "$DIRECTORY"
+absolute_dirname() {
+  ABSOLUTE_PATH=$(absolute_path "$1")
+  PARENT=$(dirname "$ABSOLUTE_PATH") || error "Failed to get the parent directory for $ABSOLUTE_PATH ($1)"
+  echo "$PARENT"
 }
 
 # Determines the base name of a file or directory
@@ -835,7 +829,7 @@ command_export() {
     fi
   fi
 
-  DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
+  DIRECTORY=$(absolute_dirname "$FILE_NAME") || error "Faile to get the full path to the parent of $FILE_NAME"
   FILE_NAME=$(absolute_basename "$FILE_NAME") || error "Failed to get the base file name of $FILE_NAME"
 
   if [ $PARENTS -eq 1 ]; then
@@ -931,7 +925,7 @@ command_import() {
     error "Could not find or open '$FILE_NAME'"
   fi
 
-  DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
+  DIRECTORY=$(absolute_dirname "$FILE_NAME") || error "Faile to get the full path to the parent of $FILE_NAME"
   FILE_NAME=$(absolute_basename "$FILE_NAME") || error "Failed to get the base file name of $FILE_NAME"
   assert_is_directory
 
