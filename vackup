@@ -578,6 +578,15 @@ prefix_all() {
   done
 }
 
+# Determines the absolute path to a file or directory
+# Parameters:
+#   Path (required): The relative or absolute path to a file or directory
+# Return: Absolute path to the specified file or directory
+absolute_path() {
+  ABSOLUTE_PATH=$(readlink -m "$1") || error "Failed to get the full path for $1"
+  echo "$ABSOLUTE_PATH"
+}
+
 # Determines the absolute path to the parent directory
 # Parameters:
 #   Path (required): The relative or absolute path to a file or directory
@@ -589,9 +598,19 @@ fulldirname() {
     /*) ;;
     *) DIRECTORY="$(pwd)/$DIRECTORY" ;;
   esac
-  DIRECTORY=$(readlink -m "$DIRECTORY") || error "Failed to get the full path for $DIRECTORY"
+  DIRECTORY=$(absolute_path "$DIRECTORY")
 
   echo "$DIRECTORY"
+}
+
+# Determines the base name of a file or directory
+# Parameters:
+#   Path (required): The relative or absolute path to a file or directory
+# Return: The base name of the specified file or directory
+absolute_basename() {
+  ABSOLUTE_PATH=$(absolute_path "$1")
+  BASENAME=$(basename "$ABSOLUTE_PATH") || error "Failed to get the base name for $ABSOLUTE_PATH ($1)"
+  echo "$BASENAME"
 }
 
 # Ensures that the specified path is not an existing file, and appends a slash if missing
@@ -817,7 +836,7 @@ command_export() {
   fi
 
   DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
-  FILE_NAME=$(basename "$FILE_NAME") || error "Failed to get the file name for $FILE_NAME"
+  FILE_NAME=$(absolute_basename "$FILE_NAME") || error "Failed to get the base file name of $FILE_NAME"
 
   if [ $PARENTS -eq 1 ]; then
     if ! mkdir -p "$DIRECTORY"; then
@@ -913,7 +932,7 @@ command_import() {
   fi
 
   DIRECTORY=$(fulldirname "$FILE_NAME") || error "Faile to get the full path for $FILE_NAME"
-  FILE_NAME=$(basename "$FILE_NAME") || error "Failed to get the file name for $FILE_NAME"
+  FILE_NAME=$(absolute_basename "$FILE_NAME") || error "Failed to get the base file name of $FILE_NAME"
   assert_is_directory
 
   volume_doesnot_exists --create
