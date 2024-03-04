@@ -938,7 +938,7 @@ command_import() {
     CONTAINERS=''
   fi
 
-  TAR_OPTIONS='-xz'
+  TAR_OPTIONS='--same-owner --same-permissions -xz'
   if [ $VERBOSE -eq 1 ]; then
     TAR_OPTIONS="${TAR_OPTIONS}v"
   fi
