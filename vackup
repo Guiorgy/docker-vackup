@@ -341,6 +341,7 @@ Options:
                     passed in a third time, append the date to the end of the
                     OUTPUT directory name instead. Mutually exclusive with the
                     -d, --date flag
+  -u, --utc         Use UTC instead of the local timezone
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -1005,6 +1006,7 @@ command_import() {
 #                     This directory will be created inside the directory defined with the Output parameter.
 #                     If the flag is passed in a second time, append the date to the start of the output directory name, instead of creating a new directory inside the output directory.
 #                     If the flag is passed in a third time, append the date to the end of the output directory name instead
+#   -u, --utc: Use UTC instead of the local timezone
 # Parameters:
 #   Output (required): The path to the output directory where the archive files will be exported to
 command_all_export() {
@@ -1015,7 +1017,7 @@ command_all_export() {
   STOP_ALL=0
   DATE=0
   DATE_DIR=0
-  CURRENT_DATE=''
+  UTC=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1032,10 +1034,6 @@ command_all_export() {
           -s | --stop) STOP=1 ;;
           -S | --stop-all) STOP_ALL=1 ;;
           -d | --date | -D | --date-dir)
-            if [ -z "$CURRENT_DATE" ]; then
-              CURRENT_DATE=$(date +'%Y-%m-%d_%H-%M-%S') || error 'Failed to get the current date'
-            fi
-
             if [ "$OPTION" = '-d' -o "$OPTION" = '--date' ] && [ $DATE_DIR -eq 0 ] && [ $DATE -lt 2 ]; then
               DATE=$((DATE + 1))
             elif [ "$OPTION" = '-D' -o "$OPTION" = '--date-dir' ] && [ $DATE -eq 0 ] && [ $DATE_DIR -lt 3 ]; then
@@ -1044,6 +1042,7 @@ command_all_export() {
               warning usage export-all "'$OPTION' passed too many times"
             fi
           ;;
+          -u | --utc) UTC=1 ;;
           *) error usage export-all "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -1056,6 +1055,17 @@ command_all_export() {
     *) error usage export-all 'Wrong number of arguments' ;;
   esac
 
+  if [ $DATE -ne 0 ] || [ $DATE_DIR -ne 0 ]; then
+    if [ $UTC -eq 1 ]; then
+      DATE_ARGS='-u'
+    else
+      DATE_ARGS=''
+    fi
+
+    CURRENT_DATE=$(date $DATE_ARGS +'%Y-%m-%d_%H-%M-%S') || error 'Failed to get the current date'
+  else
+    CURRENT_DATE=''
+  fi
   if [ $DATE_DIR -ge 2 ]; then
     DIR_NAME=$(absolute_basename "$DIRECTORY") || error "Failed to get the base directory name to $DIRECTORY"
     PARENT="$(absolute_dirname "$DIRECTORY")/" || error "Faile to get the parent path to $DIRECTORY"
