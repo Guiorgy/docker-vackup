@@ -4,7 +4,7 @@ Wants=vackup_all.timer
 
 [Service]
 Type=exec
-ExecStart=/usr/local/bin/vackup --quiet all export --in-use --stop --parents --date-dir --utc {PATH-TO-BACKUP-DIRECTORY}
+ExecStart=/usr/local/bin/vackup --quiet all export --in-use --stop --parents --date-dir --utc --keep-days=180 {PATH-TO-BACKUP-DIRECTORY}
 
 [Install]
 WantedBy=default.target

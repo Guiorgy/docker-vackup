@@ -316,32 +316,42 @@ Parameters:
               exported to
 
 Options:
-  -h, --help        Print this help page
-  -p, --parents     Create parent directories for the archive files as needed
-  -f, --force       Overwrite the archive files if a file already exists
-  -i, --in-use      Only export volumes that are in use by at least one
-                    container
-  -s, --stop        Stop the running containers that mount a volume before
-                    exporting, and restart them after. Takes priority over the
-                    -S, --stop-all flag
-  -S, --stop-all    Stop all running containers before exporting, and restart
-                    them after
-  -d, --date        Add the current date in the yyyy-MM-dd_HH-mm-ss ISOish
-                    format to the start of the archive file names. If the flag
-                    is passed in a second time, append the date to the end of
-                    the archive file names instead. Mutually exclusive with the
-                    -D, --date-dir flag
-  -D, --date-dir    Use the current date in the yyyy-MM-dd_HH-mm-ss ISOish
-                    format as the output directory where the archive files will
-                    be exported to. This directory will be created inside the
-                    directory defined with the OUTPUT parameter. If the flag is
-                    passed in a second time, append the date to the start of
-                    the OUTPUT directory name, instead of creating a new
-                    directory inside the OUTPUT directory. If the flag is
-                    passed in a third time, append the date to the end of the
-                    OUTPUT directory name instead. Mutually exclusive with the
-                    -d, --date flag
-  -u, --utc         Use UTC instead of the local timezone
+  -h, --help              Print this help page
+  -p, --parents           Create parent directories for the archive files as
+                          needed
+  -f, --force             Overwrite the archive files if a file already exists
+  -i, --in-use            Only export volumes that are in use by at least one
+                          container
+  -s, --stop              Stop the running containers that mount a volume
+                          before exporting, and restart them after. Takes
+                          priority over the -S, --stop-all flag
+  -S, --stop-all          Stop all running containers before exporting, and
+                          restart them after
+  -d, --date              Add the current date in the yyyy-MM-dd_HH-mm-ss
+                          ISOish format to the start of the archive file names.
+                          If the flag is passed in a second time, append the
+                          date to the end of the archive file names instead.
+                          Mutually exclusive with the -D, --date-dir flag
+  -D, --date-dir          Use the current date in the yyyy-MM-dd_HH-mm-ss
+                          ISOish format as the output directory where the
+                          archive files will be exported to. This directory
+                          will be created inside the directory defined with the
+                          OUTPUT parameter. If the flag is passed in a second
+                          time, append the date to the start of the OUTPUT
+                          directory name, instead of creating a new directory
+                          inside the OUTPUT directory. If the flag is passed in
+                          a third time, append the date to the end of the
+                          OUTPUT directory name instead. Mutually exclusive
+                          with the -d, --date flag
+  -u, --utc               Use UTC instead of the local timezone
+  -k, --keep=N            Keep the most recent N exported directories/archives,
+                          and remove older ones. This option is valid only in
+                          conjunction with either --date or --date-dir.
+                          Mutually exclusive with the -K, --keep-days option
+  -K, --keep-days=DAYS    Remove exported directories/archives older than DAYS
+                          days. This option is valid only in conjunction with
+                          either --date or --date-dir. Mutually exclusive with
+                          the -k, --keep option
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -538,6 +548,14 @@ information() {
   printf '%b' "$MESSAGE\n"
 }
 
+# Silently check if the tac command is defined, and define it if it doesn't
+if ! command -v tac 1> /dev/null 2>&1; then
+  # Reverses the order of lines
+  tac() {
+    sed '1!G;h;$!d'
+  }
+fi
+
 # Splits a string into individual characters, skipping the specified number of characters from the start
 # Remark: Iterating over the resulting sequence using a normal for loop will drop all space characters
 # Parameters:
@@ -595,6 +613,86 @@ prefix_all() {
     # Use printf to handle cases where the prefix is a dash ('-') and the item is either 'n', 'e' or 'E'
     printf '%s\n' "$ITEM"
   done
+}
+
+# Separates option and value from the input in the format OPTION=VALUE
+# Remark: This function uses and modifies the global OPTION and VALUE variables
+# Parameters:
+#   Option (optional, global OPTION variable by default): The option and its value delimited by an equals character
+get_option_value() {
+  case $# in
+    0) ;;
+    1) OPTION="$1" ;;
+    *) OPTION="$1"; warning 'Wrong number of arguments in the get_option_value function' ;;
+  esac
+
+  case "$OPTION" in
+    *=*) ;;
+    *) error "'$OPTION' is not in the correct format" ;;
+  esac
+
+  VALUE="${OPTION#*=}"
+  OPTION="${OPTION%%=*}"
+}
+
+# Parses a string into a base 10 integer number
+# Flags:
+#   {--negative|--non-positive|--non-negative|--positive}: The condition the parsed number must meet
+# Parameters:
+#   Number (required): The string to be parsed
+# Return: The parsed number
+parse_integer() {
+  error_format() {
+    error "'$NUMBER' is not in the correct number format"
+  }
+
+  error_condition() {
+    error "'$NUMBER' must be ${FLAG#??}"
+  }
+
+  case $# in
+    1) FLAG=''; NUMBER="$1" ;;
+    2) FLAG="$1"; NUMBER="$2" ;;
+    *) FLAG=''; NUMBER="$1"; warning 'Wrong number of arguments in the parse_integer function' ;;
+  esac
+
+  if [ -z "$NUMBER" ]; then
+    error_format
+  fi
+
+  case "$NUMBER" in
+    -*) NEGATIVE=1; NUMBER="${NUMBER#?}" ;;
+    +*) NEGATIVE=0; NUMBER="${NUMBER#?}" ;;
+    *) NEGATIVE=0 ;;
+  esac
+
+  case "$NUMBER" in
+    *[!0123456789]*) error_format ;;
+    0*)
+      # Remove leading zeros to prevent the number being interpreted in base 8
+      LEADING_ZEROS="${NUMBER%%[!0]*}"
+      if [ -n "$LEADING_ZEROS" ]; then
+        NUMBER="${NUMBER#"$LEADING_ZEROS"}"
+        if [ -z "$NUMBER" ]; then NUMBER=0; fi
+      fi
+    ;;
+  esac
+
+  if [ $NEGATIVE -eq 1 ]; then
+    NUMBER=$(( 0 - NUMBER ))
+  else
+    NUMBER=$(( NUMBER ))
+  fi
+
+  case "$FLAG" in
+    --negative) if [ $NUMBER -ge 0 ]; then error_condition; fi ;;
+    --non-positive) if [ $NUMBER -gt 0 ]; then error_condition; fi ;;
+    --non-negative) if [ $NUMBER -lt 0 ]; then error_condition; fi ;;
+    --positive) if [ $NUMBER -le 0 ]; then error_condition; fi ;;
+    *) warning "'$FLAG' is not a recognized parse_integer option" ;;
+  esac
+
+  echo $NUMBER
 }
 
 # Determines the absolute path to a file or directory
@@ -792,6 +890,71 @@ restart_containers() {
     information 'Restarting containers' "$CONTAINERS"
     docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
   fi
+}
+
+# Gets a sorted list of files/directories in the current directory for the specified export format
+# Parameters:
+#   Type (required): One of file or directory
+#   DatePosition (required): One of prefix, postfix or replace, however, replace is only valid if the Type parameter is directory
+#   Filter (required): The name of the file/directory to filter for, which can only be empty if the DatePosition parameter is replace
+#   Days (optional): Filter for files/directories at least this number of days old
+get_previous_exports() {
+  if [ $# -ge 3 ] && [ $# -le 4 ]; then
+    case "$1" in
+      file)
+        TYPE='f'
+
+        case "$2" in
+          prefix) PREFIX=''; POSTFIX="_$3$EXTENSION" ;;
+          postfix) PREFIX="$3_"; POSTFIX="$EXTENSION" ;;
+          replace) error "'$2' is not a valid value for the DatePosition parameter in the get_previous_exports function in this context" ;;
+          *) error "'$2' is not a valid value for the DatePosition parameter in the get_previous_exports function" ;;
+        esac
+
+        if [ -z "$3" ]; then
+          error "'' is not a valid value for the Filter parameter in the get_previous_exports function in this context"
+        fi
+      ;;
+      directory)
+        TYPE='d'
+
+        case "$2" in
+          prefix) PREFIX=''; POSTFIX="_$3" ;;
+          postfix) PREFIX="$3_"; POSTFIX='' ;;
+          replace) PREFIX=''; POSTFIX='' ;;
+          *) error "'$2' is not a valid value for the DatePosition parameter in the get_previous_exports function" ;;
+        esac
+
+        if [ "$2" != 'replace' ] && [ -z "$3" ]; then
+          error "'' is not a valid value for the Filter parameter in the get_previous_exports function in this context"
+        fi
+      ;;
+      *) error "'$1' is not a valid value for the Type parameter in the get_previous_exports function" ;;
+    esac
+
+    if [ $# -eq 4 ]; then
+      FIND_ARGS="-mtime +$4"
+    else
+      FIND_ARGS=''
+    fi
+  else
+    error 'Wrong number of arguments in the get_previous_exports function'
+  fi
+
+  RESULT=$(find . -mindepth 1 -maxdepth 1 -type "$TYPE" -name "${PREFIX}*-*-*_*-*-*${POSTFIX}" $FIND_ARGS -exec stat -c '%Y %n' {} +) \
+    || error 'Failed to get the list of previous exports'
+
+  # grep exits with code 1 if the input (output for find) is empty
+  if [ -n "$RESULT" ]; then
+    RESULT=$(\
+      echo "$RESULT" \
+      | grep -E "^[0-9]+(\.[0-9]+)? \./${PREFIX}[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}${POSTFIX}\$" \
+      | sort -nr \
+      | awk '{print substr($2,3)}' \
+    ) || error 'Failed to get the list of previous exports'
+  fi
+
+  echo "$RESULT" # Double quotes needed to preserve newlines
 }
 
 # Exports the specified docker volume into an archive file
@@ -1007,6 +1170,12 @@ command_import() {
 #                     If the flag is passed in a second time, append the date to the start of the output directory name, instead of creating a new directory inside the output directory.
 #                     If the flag is passed in a third time, append the date to the end of the output directory name instead
 #   -u, --utc: Use UTC instead of the local timezone
+# Options:
+#   {-k, --keep=N|-K, --keep-days=DAYS}:
+#     -k, --keep=N: Keep the most recent N exported directories/archives, and remove older ones.
+#                   This option is valid only in conjunction with either --date or --date-dir
+#     -K, --keep-days=DAYS: Remove exported directories/archives older than DAYS days.
+#                           This option is valid only in conjunction with either --date or --date-dir
 # Parameters:
 #   Output (required): The path to the output directory where the archive files will be exported to
 command_all_export() {
@@ -1018,6 +1187,8 @@ command_all_export() {
   DATE=0
   DATE_DIR=0
   UTC=0
+  KEEP=0
+  KEEP_DAYS=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1043,6 +1214,21 @@ command_all_export() {
             fi
           ;;
           -u | --utc) UTC=1 ;;
+          -k | --keep | -K | --keep-days) error usage export-all "'$OPTION' requires a value" ;;
+          -k=* | --keep=* | -K=* | --keep-days=*)
+            get_option_value
+            VALUE=$(parse_integer --non-negative "$VALUE") || error "'$OPTION' option value failed to pass validation"
+
+            if [ $KEEP -eq 0 ] && [ $KEEP_DAYS -eq 0 ]; then
+              if [ "$OPTION" = '-k' ] || [ "$OPTION" = '--keep' ]; then
+                KEEP=$VALUE
+              else
+                KEEP_DAYS=$VALUE
+              fi
+            else
+              warning usage export-all "'$OPTION' passed too many times"
+            fi
+          ;;
           *) error usage export-all "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -1128,6 +1314,73 @@ command_all_export() {
   restart_containers
 
   information --green 'Success' "Volumes [$VOLUME_NAMES] tar'ed into archive files"
+
+  if [ $(( DATE + DATE_DIR )) -ne 0 ] && [ $(( KEEP + KEEP_DAYS )) -ne 0 ]; then
+    remove_exports() {
+      OLD_IFS="$IFS"
+      IFS='
+'  # Set the Internal Field Separator to newline
+      for EXPORT in $EXPORTS; do
+        if [ $VERBOSE -eq 1 ]; then
+          information 'Cleanup' "Removing $DIRECTORY$EXPORT"
+        fi
+
+        rm -rf "$DIRECTORY$EXPORT" || error "Failed to remove $DIRECTORY$EXPORT"
+      done
+      IFS="$OLD_IFS" # Reset the Internal Field Separator
+    }
+
+    if [ $DATE -ne 0 ]; then
+      case $DATE in
+        1) DATE_POSITION='prefix' ;;
+        2) DATE_POSITION='postfix' ;;
+        *) error "Impossible state of 'DATE': '$DATE'" ;;
+      esac
+
+      cd "$DIRECTORY"
+      for VOLUME_NAME in $VOLUME_NAMES; do
+        if [ $KEEP -ne 0 ]; then
+          EXPORTS=$(get_previous_exports file "$DATE_POSITION" "$VOLUME_NAME" | tail -n +$(( KEEP + 1 )) | tac) \
+            || error "Failed to get previous archive files for the '$VOLUME_NAME' volume"
+        else
+          EXPORTS=$(get_previous_exports file "$DATE_POSITION" "$VOLUME_NAME" $KEEP_DAYS | tac) \
+            || error "Failed to get previous archive files for the '$VOLUME_NAME' volume"
+        fi
+
+        if [ -n "$EXPORTS" ]; then
+          information 'Cleanup' "Removing previous archive files for the '$VOLUME_NAME' volume"
+          remove_exports
+        fi
+      done
+    else
+      case $DATE_DIR in
+        1)
+          DATE_POSITION='replace'
+
+          DIR_NAME='yyyy-MM-dd_HH-mm-ss'
+          PARENT="$(absolute_dirname "$DIRECTORY")/" || error "Faile to get the parent path to $DIRECTORY"
+        ;;
+        2) DATE_POSITION='prefix' ;;
+        3) DATE_POSITION='postfix' ;;
+        *) error "Impossible state of 'DATE_DIR': '$DATE_DIR'" ;;
+      esac
+
+      DIRECTORY="$PARENT"
+      cd "$DIRECTORY"
+      if [ $KEEP -ne 0 ]; then
+        EXPORTS=$(get_previous_exports directory "$DATE_POSITION" "$DIR_NAME" | tail -n +$(( KEEP + 1 )) | tac) \
+          || error "Failed to get previous archive directories named '$DIR_NAME'"
+      else
+        EXPORTS=$(get_previous_exports directory "$DATE_POSITION" "$DIR_NAME" $KEEP_DAYS | tac) \
+          || error "Failed to get previous archive directories named '$DIR_NAME'"
+      fi
+
+      if [ -n "$EXPORTS" ]; then
+        information 'Cleanup' "Removing previous archive directories named '$DIR_NAME'"
+        remove_exports
+      fi
+    fi
+  fi
 }
 
 # Imports all docker volume from archive files
