@@ -169,6 +169,9 @@ else
   BOLD_WHITE_COLOR_ERR=''
 fi
 
+# The default extension of the exported/imported archive
+EXTENSION='.tar.gz'
+
 # Prints usage and exits if necessary
 # Flags:
 #   --err: Print to STDERR instead of STDOUT
@@ -306,7 +309,7 @@ Usage: $VACKUP all export [OPTIONS] OUTPUT
 
 Export multiple docker volumes into archive files
 All exported archives will be named as the name of the volume and archive
-extension, e.g. my_docker_volume.tar.gz
+extension, e.g. my_docker_volume$EXTENSION
 
 Parameters:
   OUTPUT      The path to the output directory where the archive files will be
@@ -334,7 +337,7 @@ Usage: $VACKUP all import [OPTIONS] INPUT
 
 Import multiple docker volumes from archive files
 All imported archives will be assumed to be named as the name of the volume and
-archive extension, e.g. my_docker_volume.tar.gz
+archive extension, e.g. my_docker_volume$EXTENSION
 
 Parameters:
   INPUT           The path to the intput directory where all the archive files
@@ -775,9 +778,6 @@ restart_containers() {
   fi
 }
 
-# The default extension of the exported/imported archive
-EXTENSION='tar.gz'
-
 # Exports the specified docker volume into an archive file
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
@@ -818,7 +818,7 @@ command_export() {
     *) error usage export 'Wrong number of arguments' ;;
   esac
 
-  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.$EXTENSION")
+  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME$EXTENSION")
   if [ -f "$FILE_NAME" ]; then
     if [ $OVERWRITE -eq 1 ]; then
       if [ ! -w "$FILE_NAME" ]; then
@@ -920,7 +920,7 @@ command_import() {
     *) error usage import 'Wrong number of arguments' ;;
   esac
 
-  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME.$EXTENSION")
+  FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME$EXTENSION")
   if [ ! -r "$FILE_NAME" ]; then
     error "Could not find or open '$FILE_NAME'"
   fi
@@ -1102,7 +1102,7 @@ command_all_import() {
 
   SUCCESSFUL=''
   for VOLUME_NAME in $VOLUME_NAMES; do
-    FILE_NAME="$DIRECTORY$VOLUME_NAME.$EXTENSION"
+    FILE_NAME="$DIRECTORY$VOLUME_NAME$EXTENSION"
 
     if [ ! -f "$FILE_NAME" ]; then
       warning "'$FILE_NAME' was not found, skipping import of '$VOLUME_NAME' volume"
