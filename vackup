@@ -530,7 +530,7 @@ information() {
           --purple) COLOR="$PURPLE_COLOR" ;;
           --cyan) COLOR="$CYAN_COLOR" ;;
           --white) COLOR="$WHITE_COLOR" ;;
-          *) warning 'Unrecognized color' ;;
+          *) warning "'$1' is an unrecognized color option in the information function" ;;
         esac
 
         shift
