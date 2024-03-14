@@ -914,7 +914,7 @@ get_container_ids() {
   CONTAINER_IDS=''
 
   for CONTAINER_NAME in "$@"; do
-    CONTAINER_ID=$(docker inspect --format='{{ .Id }}' "$CONTAINER_NAME") || error "Failed to find the container ID for '$CONTAINER_NAME'"
+    CONTAINER_ID=$(docker inspect --type=container --format='{{ .Id }}' "$CONTAINER_NAME") || error "Failed to find the container ID for '$CONTAINER_NAME'"
     CONTAINER_ID="${CONTAINER_ID%${CONTAINER_ID#????????????}}"
 
     if [ -z "$CONTAINER_IDS" ]; then
@@ -1169,7 +1169,7 @@ command_export() {
 
   information 'Exporting volume' "$VOLUME_NAME"
   if [ $HOST -eq 1 ]; then
-    MOUNTPOINT=$(docker inspect --format '{{ .Mountpoint }}' "$VOLUME_NAME") || {
+    MOUNTPOINT=$(docker inspect --type=volume --format '{{ .Mountpoint }}' "$VOLUME_NAME") || {
       restart_containers
       error 'Failed to get the mountpoint'
     }
@@ -1254,7 +1254,7 @@ command_import() {
 
   information 'Importing volume' "$VOLUME_NAME"
   if [ $HOST -eq 1 ]; then
-    MOUNTPOINT=$(docker inspect --format '{{ .Mountpoint }}' "$VOLUME_NAME") || {
+    MOUNTPOINT=$(docker inspect --type=volume --format '{{ .Mountpoint }}' "$VOLUME_NAME") || {
       restart_containers
       error 'Failed to get the mountpoint'
     }
