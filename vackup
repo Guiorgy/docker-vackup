@@ -327,6 +327,15 @@ Options:
                           priority over the -S, --stop-all flag
   -S, --stop-all          Stop all running containers before exporting, and
                           restart them after
+  --exclude-containers=CONTAINERS
+                          Exclude the specified containers from being
+                          stopped, where CONTAINERS is a comma separated list
+                          of container names. This option is valid only in
+                          conjunction with either --stop or --stop_all
+  --exclude-volumes=VOLUMES
+                          Exlcude the specified volumes from being exported,
+                          where VOLUMES is a comma separated list of volume
+                          names
   -d, --date              Add the current date in the yyyy-MM-dd_HH-mm-ss
                           ISOish format to the start of the archive file names.
                           If the flag is passed in a second time, append the
@@ -370,12 +379,21 @@ Parameters:
                   to be imported are
 
 Options:
-  -h, --help      Print this help page
-  -s, --stop        Stop the running containers that mount a volume before
-                    importing, and restart them after. Takes priority over the
-                    -S, --stop-all flag
-  -S, --stop-all    Stop all running containers before importing, and restart
-                    them after
+  -h, --help              Print this help page
+  -s, --stop              Stop the running containers that mount a volume
+                          before importing, and restart them after. Takes
+                          priority over the -S, --stop-all flag
+  -S, --stop-all          Stop all running containers before importing, and
+                          restart them after
+  --exclude-containers=CONTAINERS
+                          Exclude the specified containers from being
+                          stopped, where CONTAINERS is a comma separated list
+                          of container names. This option is valid only in
+                          conjunction with either --stop or --stop_all
+  --exclude-volumes=VOLUMES
+                          Exlcude the specified volumes from being imported,
+                          where VOLUMES is a comma separated list of volume
+                          names
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -813,8 +831,12 @@ volume_doesnot_exists() {
 # Remark: This function uses and modifies the global VOLUME_NAMES variable
 # Flags:
 #   -i, --in-use: Only get volumes in use by at least one container
+# Options:
+#   -e, --exclude ExcludeList: Exclude the specified volumes from the final list.
+#                              ExcludeList must be a comma separated list of volume names
 get_volumes() {
   INUSE=0
+  EXCLUDES=''
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -824,6 +846,14 @@ get_volumes() {
 
         case "$OPTION" in
           -i | --in-use) INUSE=1 ;;
+          -e | --exclude)
+            if [ $# -ne 0 ]; then
+              EXCLUDES=$(echo "$1" | tr ',' ' ') || error 'Failed to replace commas with spaces'
+              shift
+            else
+              warning 'Wrong number of arguments in the get_volumes function'
+            fi
+          ;;
           *) warning "'$OPTION' is not a recognized get_volumes option"
         esac
       ;;
@@ -832,6 +862,31 @@ get_volumes() {
   done
 
   VOLUME_NAMES=$(docker volume ls -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of volumes'
+
+  if [ -n "$EXCLUDES" ]; then
+    VOLUMES=''
+
+    for VOLUME_NAME in $VOLUME_NAMES; do
+      SHOULD_EXCLUDE=0
+
+      for EXCLUDE in $EXCLUDES; do
+        if [ "$VOLUME_NAME" = "$EXCLUDE" ]; then
+          SHOULD_EXCLUDE=1
+          break
+        fi
+      done
+
+      if [ $SHOULD_EXCLUDE -eq 0 ]; then
+        if [ -z "$VOLUMES" ]; then
+          VOLUMES="$VOLUME_NAME"
+        else
+          VOLUMES="$VOLUMES $VOLUME_NAME"
+        fi
+      fi
+    done
+
+    VOLUME_NAMES="$VOLUMES"
+  fi
 
   if [ $INUSE -eq 1 ]; then
     VOLUMES=''
@@ -852,11 +907,58 @@ get_volumes() {
   fi
 }
 
+# Transform a list of container names to 12 character container IDs
+# Parameters:
+#   Containers..: Container names
+get_container_ids() {
+  CONTAINER_IDS=''
+
+  for CONTAINER_NAME in "$@"; do
+    CONTAINER_ID=$(docker inspect --format='{{ .Id }}' "$CONTAINER_NAME") || error "Failed to find the container ID for '$CONTAINER_NAME'"
+    CONTAINER_ID="${CONTAINER_ID%${CONTAINER_ID#????????????}}"
+
+    if [ -z "$CONTAINER_IDS" ]; then
+      CONTAINER_IDS="$CONTAINER_ID"
+    else
+      CONTAINER_IDS="$CONTAINER_IDS $CONTAINER_ID"
+    fi
+  done
+
+  echo "$CONTAINER_IDS"
+}
+
 # Gets a space separated list of running container ids
 # Remark: This function uses and modifies the global CONTAINERS variable
+# Options:
+#   -e, --exclude ExcludeList: Exclude the specified containers from the final list.
+#                              ExcludeList must be a comma separated list of container names
 # Parameters:
 #   VolumeNames..: Only get containers that have one of the specified volumes as a mount point
 get_running_containers() {
+  EXCLUDES=''
+
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
+          -e | --exclude)
+            if [ $# -ne 0 ]; then
+              EXCLUDES=$(echo "$1" | tr ',' ' ') || error 'Failed to replace commas with spaces'
+              shift
+            else
+              warning 'Wrong number of arguments in the get_running_containers function'
+            fi
+          ;;
+          *) warning "'$OPTION' is not a recognized get_running_containers option"
+        esac
+      ;;
+      *) break ;;
+    esac
+  done
+
   if [ $# -eq 0 ]; then
     CONTAINERS=$(docker ps -q | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to get the list of running containers'
   elif [ $# -eq 1 ]; then
@@ -871,6 +973,33 @@ get_running_containers() {
     CONTAINERS=$(echo "$CONTAINERS" | tr '\n' ' ' | awk '{$1=$1;print}') || error 'Failed to remove line separators, and leading and trailing spaces from the list of containers'
 
     CONTAINERS=$(echo "$CONTAINERS" | tr ' ' '\n' | sort -u | tr '\n' ' ') || error 'Failed to remove duplicates from the list of containers'
+  fi
+
+  if [ -n "$EXCLUDES" ]; then
+    EXCLUDES=$(get_container_ids $EXCLUDES) || error 'Failed to find container IDs'
+
+    CONS=''
+
+    for CONTAINER in $CONTAINERS; do
+      SHOULD_EXCLUDE=0
+
+      for EXCLUDE in $EXCLUDES; do
+        if [ "$CONTAINER" = "$EXCLUDE" ]; then
+          SHOULD_EXCLUDE=1
+          break
+        fi
+      done
+
+      if [ $SHOULD_EXCLUDE -eq 0 ]; then
+        if [ -z "$CONS" ]; then
+          CONS="$CONTAINER"
+        else
+          CONS="$CONS $CONTAINER"
+        fi
+      fi
+    done
+
+    CONTAINERS="$CONS"
   fi
 }
 
@@ -1171,6 +1300,9 @@ command_import() {
 #                     If the flag is passed in a third time, append the date to the end of the output directory name instead
 #   -u, --utc: Use UTC instead of the local timezone
 # Options:
+#   --exclude-containers=CONTAINERS: Exclude the specified containers from being stopped, where CONTAINERS is a comma separated list of container names.
+#                                    This option is valid only in conjunction with either --stop or --stop_all
+#   --exclude-volumes=VOLUMES: Exlcude the specified volumes from being exported, where VOLUMES is a comma separated list of volume names
 #   {-k, --keep=N|-K, --keep-days=DAYS}:
 #     -k, --keep=N: Keep the most recent N exported directories/archives, and remove older ones.
 #                   This option is valid only in conjunction with either --date or --date-dir
@@ -1184,6 +1316,8 @@ command_all_export() {
   INUSE=0
   STOP=0
   STOP_ALL=0
+  EXCLUDE_CONTAINERS=''
+  EXCLUDE_VOLUMES=''
   DATE=0
   DATE_DIR=0
   UTC=0
@@ -1198,12 +1332,15 @@ command_all_export() {
 
         case "$OPTION" in
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          --exclude-containers | --exclude-volumes | -k | --keep | -K | --keep-days) error usage export-all "'$OPTION' requires a value" ;;
           -h | --help) print_usage --exit export-all ;;
           -p | --parents) PARENTS=1; ARGS="$ARGS --parents" ;;
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
           -S | --stop-all) STOP_ALL=1 ;;
+          --exclude-containers=*) get_option_value; EXCLUDE_CONTAINERS="$VALUE" ;;
+          --exclude-volumes=*) get_option_value; EXCLUDE_VOLUMES="$VALUE" ;;
           -d | --date | -D | --date-dir)
             if [ "$OPTION" = '-d' -o "$OPTION" = '--date' ] && [ $DATE_DIR -eq 0 ] && [ $DATE -lt 2 ]; then
               DATE=$((DATE + 1))
@@ -1214,7 +1351,6 @@ command_all_export() {
             fi
           ;;
           -u | --utc) UTC=1 ;;
-          -k | --keep | -K | --keep-days) error usage export-all "'$OPTION' requires a value" ;;
           -k=* | --keep=* | -K=* | --keep-days=*)
             get_option_value
             VALUE=$(parse_integer --non-negative "$VALUE") || error "'$OPTION' option value failed to pass validation"
@@ -1265,18 +1401,24 @@ command_all_export() {
     *) error "Impossible state of 'DATE_DIR': '$DATE_DIR'" ;;
   esac
 
+  GET_VOLUMES_ARGS=''
   if [ $INUSE -eq 1 ]; then
-    get_volumes --in-use
-  else
-    get_volumes
+    GET_VOLUMES_ARGS="$GET_VOLUMES_ARGS --in-use"
   fi
+  if [ -n "$EXCLUDE_VOLUMES" ]; then
+    GET_VOLUMES_ARGS="$GET_VOLUMES_ARGS --exclude $EXCLUDE_VOLUMES"
+  fi
+  get_volumes $GET_VOLUMES_ARGS
 
   if [ $STOP -eq 1 ] || [ $STOP_ALL -eq 1 ]; then
-    if [ $STOP -eq 1 ]; then
-      get_running_containers $VOLUME_NAMES
-    else
-      get_running_containers
+    GET_RUNNING_CONTAINERS_ARGS=''
+    if [ -n "$EXCLUDE_CONTAINERS" ]; then
+      GET_RUNNING_CONTAINERS_ARGS="$GET_RUNNING_CONTAINERS_ARGS --exclude $EXCLUDE_CONTAINERS"
     fi
+    if [ $STOP -eq 1 ]; then
+      GET_RUNNING_CONTAINERS_ARGS="$GET_RUNNING_CONTAINERS_ARGS $VOLUME_NAMES"
+    fi
+    get_running_containers $GET_RUNNING_CONTAINERS_ARGS
 
     stop_containers
   else
@@ -1392,12 +1534,18 @@ command_all_export() {
 #   -s, --stop: Stop the running containers that mount a volume before importing, and restart them after.
 #               Takes priority over the -S, --stop-all flag
 #   -S, --stop-all: Stop all running containers before importing, and restart them after
+# Options:
+#   --exclude-containers=CONTAINERS: Exclude the specified containers from being stopped, where CONTAINERS is a comma separated list of container names.
+#                                    This option is valid only in conjunction with either --stop or --stop_all
+#   --exclude-volumes=VOLUMES: Exlcude the specified volumes from being imported, where VOLUMES is a comma separated list of volume names
 # Parameters:
 #   Input (required): The path to the intput directory where all the archive files to be imported are
 command_all_import() {
   ARGS=''
   STOP=0
   STOP_ALL=0
+  EXCLUDE_CONTAINERS=''
+  EXCLUDE_VOLUMES=''
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1407,9 +1555,12 @@ command_all_import() {
 
         case "$OPTION" in
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          --exclude-containers | --exclude-volumes) error usage import-all "'$OPTION' requires a value" ;;
           -h | --help) print_usage --exit import-all ;;
           -s | --stop) STOP=1 ;;
           -S | --stop-all) STOP_ALL=1 ;;
+          --exclude-containers=*) get_option_value; EXCLUDE_CONTAINERS="$VALUE" ;;
+          --exclude-volumes=*) get_option_value; EXCLUDE_VOLUMES="$VALUE" ;;
           *) error usage import-all "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
@@ -1422,14 +1573,21 @@ command_all_import() {
     *) error usage import-all 'Wrong number of arguments' ;;
   esac
 
-  get_volumes
+  GET_VOLUMES_ARGS=''
+  if [ -n "$EXCLUDE_VOLUMES" ]; then
+    GET_VOLUMES_ARGS="$GET_VOLUMES_ARGS --exclude $EXCLUDE_VOLUMES"
+  fi
+  get_volumes $GET_VOLUMES_ARGS
 
   if [ $STOP -eq 1 ] || [ $STOP_ALL -eq 1 ]; then
-    if [ $STOP -eq 1 ]; then
-      get_running_containers $VOLUME_NAMES
-    else
-      get_running_containers
+    GET_RUNNING_CONTAINERS_ARGS=''
+    if [ -n "$EXCLUDE_CONTAINERS" ]; then
+      GET_RUNNING_CONTAINERS_ARGS="$GET_RUNNING_CONTAINERS_ARGS --exclude $EXCLUDE_CONTAINERS"
     fi
+    if [ $STOP -eq 1 ]; then
+      GET_RUNNING_CONTAINERS_ARGS="$GET_RUNNING_CONTAINERS_ARGS $VOLUME_NAMES"
+    fi
+    get_running_containers $GET_RUNNING_CONTAINERS_ARGS
 
     stop_containers
   else
