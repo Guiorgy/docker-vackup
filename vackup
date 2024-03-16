@@ -352,7 +352,9 @@ Options:
                           a third time, append the date to the end of the
                           OUTPUT directory name instead. Mutually exclusive
                           with the -d, --date flag
-  -u, --utc               Use UTC instead of the local timezone
+  -u, --utc               Use UTC instead of the local timezone. This option is
+                          valid only in conjunction with either --date or
+                          --date-dir
   -k, --keep=N            Keep the most recent N exported directories/archives,
                           and remove older ones. This option is valid only in
                           conjunction with either --date or --date-dir.
@@ -1298,7 +1300,8 @@ command_import() {
 #                     This directory will be created inside the directory defined with the Output parameter.
 #                     If the flag is passed in a second time, append the date to the start of the output directory name, instead of creating a new directory inside the output directory.
 #                     If the flag is passed in a third time, append the date to the end of the output directory name instead
-#   -u, --utc: Use UTC instead of the local timezone
+#   -u, --utc: Use UTC instead of the local timezone.
+#              This option is valid only in conjunction with either --date or --date-dir
 # Options:
 #   --exclude-containers=CONTAINERS: Exclude the specified containers from being stopped, where CONTAINERS is a comma separated list of container names.
 #                                    This option is valid only in conjunction with either --stop or --stop_all
