@@ -255,6 +255,8 @@ Options:
   -f, --force       Overwrite the archive file if a file already exists
   -s, --stop        Stop running containers that have the specified volume as a
                     mount point before exporting, and restart them after
+  -P, --pause       Pause containers instead of stopping them. This option is
+                    valid only in conjunction with --stop
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -278,6 +280,8 @@ Options:
   -h, --help      Print this help page
   -s, --stop      Stop running containers that have the specified volume as a
                   mount point before importing, and restart them after
+  -P, --pause     Pause containers instead of stopping them. This option is
+                  valid only in conjunction with --stop
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -327,6 +331,9 @@ Options:
                           priority over the -S, --stop-all flag
   -S, --stop-all          Stop all running containers before exporting, and
                           restart them after
+  -P, --pause             Pause containers instead of stopping them. This
+                          option is valid only in conjunction with either
+                          --stop or --stop_all
   --exclude-containers=CONTAINERS
                           Exclude the specified containers from being
                           stopped, where CONTAINERS is a comma separated list
@@ -387,6 +394,9 @@ Options:
                           priority over the -S, --stop-all flag
   -S, --stop-all          Stop all running containers before importing, and
                           restart them after
+  -P, --pause             Pause containers instead of stopping them. This
+                          option is valid only in conjunction with either
+                          --stop or --stop_all
   --exclude-containers=CONTAINERS
                           Exclude the specified containers from being
                           stopped, where CONTAINERS is a comma separated list
@@ -1007,19 +1017,67 @@ get_running_containers() {
 
 # Stops containers defined in the global CONTAINERS variable
 # Remark: This function uses the global CONTAINERS variable
+# Flags:
+#   -p, --pause: Pause containers instead of stopping them
 stop_containers() {
+  PAUSE=0
+
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
+          -p | --pause) PAUSE=1 ;;
+          *) warning "'$OPTION' is not a recognized stop_containers option"
+        esac
+      ;;
+      *) break ;;
+    esac
+  done
+
   if [ -n "$CONTAINERS" ]; then
-    information 'Stopping containers' "$CONTAINERS"
-    docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
+    if [ $PAUSE -eq 0 ]; then
+      information 'Stopping containers' "$CONTAINERS"
+      docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
+    else
+      information 'Pausing containers' "$CONTAINERS"
+      docker container pause $CONTAINERS 1> /dev/null || error 'Failed to pause containers'
+    fi
   fi
 }
 
 # Restarts containers defined in the global CONTAINERS variable
 # Remark: This function uses the global CONTAINERS variable
+# Flags:
+#   -p, --pause: Unpause containers instead of restarting them
 restart_containers() {
+  UNPAUSE=0
+
+  while [ $# -ne 0 ]; do
+    case "$1" in
+      -*)
+        OPTION="$1"
+        shift
+
+        case "$OPTION" in
+          -p | --pause) UNPAUSE=1 ;;
+          *) warning "'$OPTION' is not a recognized restart_containers option"
+        esac
+      ;;
+      *) break ;;
+    esac
+  done
+
   if [ -n "$CONTAINERS" ]; then
-    information 'Restarting containers' "$CONTAINERS"
-    docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
+    if [ $UNPAUSE -eq 0 ]; then
+      information 'Restarting containers' "$CONTAINERS"
+      docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
+    else
+      information 'Unpausing containers' "$CONTAINERS"
+      docker container unpause $CONTAINERS 1> /dev/null || error 'Failed to unpause containers'
+    fi
   fi
 }
 
@@ -1095,6 +1153,8 @@ get_previous_exports() {
 #   -p, --parents: Create parent directories for the archive file as needed
 #   -f, --force: Overwrite the archive file if a file already exists
 #   -s, --stop: Stop running containers that have the specified volume as a mount point before exporting, and restart them after
+#   -P, --pause: Pause containers instead of stopping them.
+#                This option is valid only in conjunction with --stop
 # Parameters:
 #   VolumeName (required): The docker volume to export
 #   Output (optional, ./ by default): The path to the output archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
@@ -1102,6 +1162,7 @@ command_export() {
   PARENTS=0
   OVERWRITE=0
   STOP=0
+  PAUSE=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1115,6 +1176,7 @@ command_export() {
           -p | --parents) PARENTS=1 ;;
           -f | --force) OVERWRITE=1 ;;
           -s | --stop) STOP=1 ;;
+          -P | --pause) PAUSE=1 ;;
           *) error usage export "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -1157,11 +1219,18 @@ command_export() {
 
   if [ $STOP -eq 1 ]; then
     get_running_containers "$VOLUME_NAME"
+
+    if [ $PAUSE -eq 1 ]; then
+      STOP_RESTART_CONTAINERS_ARGS='--pause'
+    else
+      STOP_RESTART_CONTAINERS_ARGS=''
+    fi
+
+    stop_containers $STOP_RESTART_CONTAINERS_ARGS
   else
     CONTAINERS=''
+    STOP_RESTART_CONTAINERS_ARGS=''
   fi
-
-  stop_containers
 
   TAR_OPTIONS='-zc'
   if [ $VERBOSE -eq 1 ]; then
@@ -1172,12 +1241,12 @@ command_export() {
   information 'Exporting volume' "$VOLUME_NAME"
   if [ $HOST -eq 1 ]; then
     MOUNTPOINT=$(docker inspect --type=volume --format '{{ .Mountpoint }}' "$VOLUME_NAME") || {
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to get the mountpoint'
     }
 
     if ! tar $TAR_OPTIONS "$DIRECTORY/$FILE_NAME" -C "$MOUNTPOINT" .; then
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to tar the volume'
     fi
   else
@@ -1186,12 +1255,12 @@ command_export() {
       -v "$DIRECTORY":/vackup \
       busybox \
       tar $TAR_OPTIONS /vackup/"$FILE_NAME" -C /vackup-volume .; then
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
   fi
 
-  restart_containers
+  restart_containers $STOP_RESTART_CONTAINERS_ARGS
 
   information --green 'Success' "Volume $VOLUME_NAME tar'ed into file '$FILE_NAME'"
 }
@@ -1201,11 +1270,14 @@ command_export() {
 # Flags:
 #   -h, --help: Print the usage page
 #   -s, --stop: Stop running containers that have the specified volume as a mount point before importing, and restart them after
+#   -P, --pause: Pause containers instead of stopping them.
+#                This option is valid only in conjunction with --stop
 # Parameters:
 #   Input (optional, ./ by default): The path to the intput archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
 #   VolumeName (required): The docker volume to import
 command_import() {
   STOP=0
+  PAUSE=0
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1217,6 +1289,7 @@ command_import() {
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
           -h | --help) print_usage --exit import ;;
           -s | --stop) STOP=1 ;;
+          -P | --pause) PAUSE=1 ;;
           *) error usage import "'$OPTION' is not a recognized import option" ;;
         esac
       ;;
@@ -1243,9 +1316,17 @@ command_import() {
 
   if [ $STOP -eq 1 ]; then
     get_running_containers "$VOLUME_NAME"
-    stop_containers
+
+    if [ $PAUSE -eq 1 ]; then
+      STOP_RESTART_CONTAINERS_ARGS='--pause'
+    else
+      STOP_RESTART_CONTAINERS_ARGS=''
+    fi
+
+    stop_containers $STOP_RESTART_CONTAINERS_ARGS
   else
     CONTAINERS=''
+    STOP_RESTART_CONTAINERS_ARGS=''
   fi
 
   TAR_OPTIONS='--same-owner --same-permissions -xz'
@@ -1257,12 +1338,12 @@ command_import() {
   information 'Importing volume' "$VOLUME_NAME"
   if [ $HOST -eq 1 ]; then
     MOUNTPOINT=$(docker inspect --type=volume --format '{{ .Mountpoint }}' "$VOLUME_NAME") || {
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to get the mountpoint'
     }
 
     if ! tar $TAR_OPTIONS "$DIRECTORY/$FILE_NAME" -C "$MOUNTPOINT"; then
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to extract the tar archive into the volume'
     fi
   else
@@ -1271,12 +1352,12 @@ command_import() {
       -v "$DIRECTORY/$FILE_NAME":"/vackup/$FILE_NAME":ro \
       busybox \
       tar $TAR_OPTIONS /vackup/"$FILE_NAME" -C /vackup-volume; then
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
   fi
 
-  restart_containers
+  restart_containers $STOP_RESTART_CONTAINERS_ARGS
 
   information --green 'Success' "Archive '$FILE_NAME' unpacked into volume $VOLUME_NAME"
 }
@@ -1293,6 +1374,8 @@ command_import() {
 #   -s, --stop: Stop the running containers that mount a volume before exporting, and restart them after.
 #               Takes priority over the -S, --stop-all flag
 #   -S, --stop-all: Stop all running containers before exporting, and restart them after
+#   -P, --pause: Pause containers instead of stopping them.
+#                This option is valid only in conjunction with either --stop or --stop_all
 #   {-d, --date|-D, --date-dir}:
 #     -d, --date: Add the current date in the yyyy-MM-dd_HH-mm-ss ISOish format to the start of the archive file names.
 #                 If the flag is passed in a second time, append the date to the end of the archive file names instead
@@ -1319,6 +1402,7 @@ command_all_export() {
   INUSE=0
   STOP=0
   STOP_ALL=0
+  PAUSE=0
   EXCLUDE_CONTAINERS=''
   EXCLUDE_VOLUMES=''
   DATE=0
@@ -1342,6 +1426,7 @@ command_all_export() {
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
           -S | --stop-all) STOP_ALL=1 ;;
+          -P | --pause) PAUSE=1 ;;
           --exclude-containers=*) get_option_value; EXCLUDE_CONTAINERS="$VALUE" ;;
           --exclude-volumes=*) get_option_value; EXCLUDE_VOLUMES="$VALUE" ;;
           -d | --date | -D | --date-dir)
@@ -1423,9 +1508,16 @@ command_all_export() {
     fi
     get_running_containers $GET_RUNNING_CONTAINERS_ARGS
 
-    stop_containers
+    if [ $PAUSE -eq 1 ]; then
+      STOP_RESTART_CONTAINERS_ARGS='--pause'
+    else
+      STOP_RESTART_CONTAINERS_ARGS=''
+    fi
+
+    stop_containers $STOP_RESTART_CONTAINERS_ARGS
   else
     CONTAINERS=''
+    STOP_RESTART_CONTAINERS_ARGS=''
   fi
 
   if [ $DATE_DIR -ne 0 ]; then
@@ -1451,12 +1543,12 @@ command_all_export() {
     esac
 
     if ! (command_export $ARGS "$VOLUME_NAME" "$FILE_NAME"); then
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error "Failed during $VOLUME_NAME volume export"
     fi
   done
 
-  restart_containers
+  restart_containers $STOP_RESTART_CONTAINERS_ARGS
 
   information --green 'Success' "Volumes [$VOLUME_NAMES] tar'ed into archive files"
 
@@ -1537,6 +1629,8 @@ command_all_export() {
 #   -s, --stop: Stop the running containers that mount a volume before importing, and restart them after.
 #               Takes priority over the -S, --stop-all flag
 #   -S, --stop-all: Stop all running containers before importing, and restart them after
+#   -P, --pause: Pause containers instead of stopping them.
+#                This option is valid only in conjunction with either --stop or --stop_all
 # Options:
 #   --exclude-containers=CONTAINERS: Exclude the specified containers from being stopped, where CONTAINERS is a comma separated list of container names.
 #                                    This option is valid only in conjunction with either --stop or --stop_all
@@ -1547,6 +1641,7 @@ command_all_import() {
   ARGS=''
   STOP=0
   STOP_ALL=0
+  PAUSE=0
   EXCLUDE_CONTAINERS=''
   EXCLUDE_VOLUMES=''
 
@@ -1562,6 +1657,7 @@ command_all_import() {
           -h | --help) print_usage --exit import-all ;;
           -s | --stop) STOP=1 ;;
           -S | --stop-all) STOP_ALL=1 ;;
+          -P | --pause) PAUSE=1 ;;
           --exclude-containers=*) get_option_value; EXCLUDE_CONTAINERS="$VALUE" ;;
           --exclude-volumes=*) get_option_value; EXCLUDE_VOLUMES="$VALUE" ;;
           *) error usage import-all "'$OPTION' is not a recognized import option" ;;
@@ -1592,9 +1688,16 @@ command_all_import() {
     fi
     get_running_containers $GET_RUNNING_CONTAINERS_ARGS
 
-    stop_containers
+    if [ $PAUSE -eq 1 ]; then
+      STOP_RESTART_CONTAINERS_ARGS='--pause'
+    else
+      STOP_RESTART_CONTAINERS_ARGS=''
+    fi
+
+    stop_containers $STOP_RESTART_CONTAINERS_ARGS
   else
     CONTAINERS=''
+    STOP_RESTART_CONTAINERS_ARGS=''
   fi
 
   SUCCESSFUL=''
@@ -1607,7 +1710,7 @@ command_all_import() {
     fi
 
     if ! (command_import $ARGS "$FILE_NAME" "$VOLUME_NAME"); then
-      restart_containers
+      restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error "Failed during $VOLUME_NAME volume import"
     fi
 
@@ -1618,7 +1721,7 @@ command_all_import() {
     fi
   done
 
-  restart_containers
+  restart_containers $STOP_RESTART_CONTAINERS_ARGS
 
   information --green 'Success' "Archives unpacked into volumes [$SUCCESSFUL]"
 }
