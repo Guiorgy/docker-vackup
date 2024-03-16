@@ -1015,10 +1015,11 @@ get_running_containers() {
   fi
 }
 
-# Stops containers defined in the global CONTAINERS variable
-# Remark: This function uses the global CONTAINERS variable
+# Stops the specified containers
 # Flags:
 #   -p, --pause: Pause containers instead of stopping them
+# Parameters:
+#   Containers..: Container IDs
 stop_containers() {
   PAUSE=0
 
@@ -1037,21 +1038,22 @@ stop_containers() {
     esac
   done
 
-  if [ -n "$CONTAINERS" ]; then
+  if [ $# -ne 0 ]; then
     if [ $PAUSE -eq 0 ]; then
-      information 'Stopping containers' "$CONTAINERS"
-      docker stop $CONTAINERS 1> /dev/null || error 'Failed to stop containers'
+      information 'Stopping containers' "$*"
+      docker stop "$@" 1> /dev/null || error 'Failed to stop containers'
     else
-      information 'Pausing containers' "$CONTAINERS"
-      docker container pause $CONTAINERS 1> /dev/null || error 'Failed to pause containers'
+      information 'Pausing containers' "$*"
+      docker container pause "$@" 1> /dev/null || error 'Failed to pause containers'
     fi
   fi
 }
 
-# Restarts containers defined in the global CONTAINERS variable
-# Remark: This function uses the global CONTAINERS variable
+# Restarts the specified containers
 # Flags:
 #   -p, --pause: Unpause containers instead of restarting them
+# Parameters:
+#   Containers..: Container IDs
 restart_containers() {
   UNPAUSE=0
 
@@ -1070,13 +1072,13 @@ restart_containers() {
     esac
   done
 
-  if [ -n "$CONTAINERS" ]; then
+  if [ $# -ne 0 ]; then
     if [ $UNPAUSE -eq 0 ]; then
-      information 'Restarting containers' "$CONTAINERS"
-      docker restart $CONTAINERS 1> /dev/null || error 'Failed to restart containers'
+      information 'Restarting containers' "$*"
+      docker restart "$@" 1> /dev/null || error 'Failed to restart containers'
     else
-      information 'Unpausing containers' "$CONTAINERS"
-      docker container unpause $CONTAINERS 1> /dev/null || error 'Failed to unpause containers'
+      information 'Unpausing containers' "$*"
+      docker container unpause "$@" 1> /dev/null || error 'Failed to unpause containers'
     fi
   fi
 }
@@ -1221,9 +1223,9 @@ command_export() {
     get_running_containers "$VOLUME_NAME"
 
     if [ $PAUSE -eq 1 ]; then
-      STOP_RESTART_CONTAINERS_ARGS='--pause'
+      STOP_RESTART_CONTAINERS_ARGS="--pause $CONTAINERS"
     else
-      STOP_RESTART_CONTAINERS_ARGS=''
+      STOP_RESTART_CONTAINERS_ARGS="$CONTAINERS"
     fi
 
     stop_containers $STOP_RESTART_CONTAINERS_ARGS
@@ -1318,9 +1320,9 @@ command_import() {
     get_running_containers "$VOLUME_NAME"
 
     if [ $PAUSE -eq 1 ]; then
-      STOP_RESTART_CONTAINERS_ARGS='--pause'
+      STOP_RESTART_CONTAINERS_ARGS="--pause $CONTAINERS"
     else
-      STOP_RESTART_CONTAINERS_ARGS=''
+      STOP_RESTART_CONTAINERS_ARGS="$CONTAINERS"
     fi
 
     stop_containers $STOP_RESTART_CONTAINERS_ARGS
@@ -1509,9 +1511,9 @@ command_all_export() {
     get_running_containers $GET_RUNNING_CONTAINERS_ARGS
 
     if [ $PAUSE -eq 1 ]; then
-      STOP_RESTART_CONTAINERS_ARGS='--pause'
+      STOP_RESTART_CONTAINERS_ARGS="--pause $CONTAINERS"
     else
-      STOP_RESTART_CONTAINERS_ARGS=''
+      STOP_RESTART_CONTAINERS_ARGS="$CONTAINERS"
     fi
 
     stop_containers $STOP_RESTART_CONTAINERS_ARGS
@@ -1689,9 +1691,9 @@ command_all_import() {
     get_running_containers $GET_RUNNING_CONTAINERS_ARGS
 
     if [ $PAUSE -eq 1 ]; then
-      STOP_RESTART_CONTAINERS_ARGS='--pause'
+      STOP_RESTART_CONTAINERS_ARGS="--pause $CONTAINERS"
     else
-      STOP_RESTART_CONTAINERS_ARGS=''
+      STOP_RESTART_CONTAINERS_ARGS="$CONTAINERS"
     fi
 
     stop_containers $STOP_RESTART_CONTAINERS_ARGS
