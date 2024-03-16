@@ -466,20 +466,20 @@ warning() {
     fi
 
     case $# in
-      0) MESSAGE='' ;;
-      1) MESSAGE=$1 ;;
-      *) MESSAGE=$1; warning 'Wrong number of arguments in the warning function' ;;
+      0) WARNING_MESSAGE='' ;;
+      1) WARNING_MESSAGE=$1 ;;
+      *) WARNING_MESSAGE=$1; warning 'Wrong number of arguments in the warning function' ;;
     esac
 
-    if [ -n "$MESSAGE" ]; then
-      MESSAGE=": $MESSAGE"
+    if [ -n "$WARNING_MESSAGE" ]; then
+      WARNING_MESSAGE=": $WARNING_MESSAGE"
     fi
   else
     USAGE=''
-    MESSAGE=''
+    WARNING_MESSAGE=''
   fi
 
-  printf 1>&2 '%b' "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}${MESSAGE}\n"
+  printf 1>&2 '%b' "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}${WARNING_MESSAGE}\n"
 
   if [ -n "$USAGE" ]; then
     print_usage --err "$USAGE"
@@ -510,22 +510,22 @@ error() {
     fi
 
     case $# in
-      0) MESSAGE=''; CODE=1 ;;
-      1) MESSAGE=$1; CODE=1 ;;
-      2) MESSAGE=$1; CODE=$2 ;;
-      *) MESSAGE=$1; CODE=$2; warning 'Wrong number of arguments in the error function' ;;
+      0) ERROR_MESSAGE=''; CODE=1 ;;
+      1) ERROR_MESSAGE=$1; CODE=1 ;;
+      2) ERROR_MESSAGE=$1; CODE=$2 ;;
+      *) ERROR_MESSAGE=$1; CODE=$2; warning 'Wrong number of arguments in the error function' ;;
     esac
 
-    if [ -n "$MESSAGE" ]; then
-      MESSAGE=": $MESSAGE"
+    if [ -n "$ERROR_MESSAGE" ]; then
+      ERROR_MESSAGE=": $ERROR_MESSAGE"
     fi
   else
     USAGE=''
-    MESSAGE=''
+    ERROR_MESSAGE=''
     CODE=1
   fi
 
-  printf 1>&2 '%b' "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}${MESSAGE}\n"
+  printf 1>&2 '%b' "${BOLD_RED_COLOR_ERR}Error${RESET_COLOR_ERR}${ERROR_MESSAGE}\n"
 
   if [ -n "$USAGE" ]; then
     print_usage --err "$USAGE"
@@ -570,12 +570,12 @@ information() {
   fi
 
   case $# in
-    1) MESSAGE=$1 ;;
-    2) MESSAGE="${COLOR}$1${RESET_COLOR}: $2" ;;
-    *) MESSAGE=$1; warning 'Wrong number of arguments in the information function' ;;
+    1) INFORMATION_MESSAGE=$1 ;;
+    2) INFORMATION_MESSAGE="${COLOR}$1${RESET_COLOR}: $2" ;;
+    *) INFORMATION_MESSAGE=$1; warning 'Wrong number of arguments in the information function' ;;
   esac
 
-  printf '%b' "$MESSAGE\n"
+  printf '%b' "$INFORMATION_MESSAGE\n"
 }
 
 # Silently check if the tac command is defined, and define it if it doesn't
