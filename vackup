@@ -468,7 +468,7 @@ warning() {
     case $# in
       0) WARNING_MESSAGE='' ;;
       1) WARNING_MESSAGE=$1 ;;
-      *) WARNING_MESSAGE=$1; warning 'Wrong number of arguments in the warning function' ;;
+      *) WARNING_MESSAGE="$*"; warning 'Wrong number of arguments in the warning function' ;;
     esac
 
     if [ -n "$WARNING_MESSAGE" ]; then
@@ -513,7 +513,7 @@ error() {
       0) ERROR_MESSAGE=''; CODE=1 ;;
       1) ERROR_MESSAGE=$1; CODE=1 ;;
       2) ERROR_MESSAGE=$1; CODE=$2 ;;
-      *) ERROR_MESSAGE=$1; CODE=$2; warning 'Wrong number of arguments in the error function' ;;
+      *) ERROR_MESSAGE="$*"; CODE=1; warning 'Wrong number of arguments in the error function' ;;
     esac
 
     if [ -n "$ERROR_MESSAGE" ]; then
@@ -572,7 +572,7 @@ information() {
   case $# in
     1) INFORMATION_MESSAGE=$1 ;;
     2) INFORMATION_MESSAGE="${COLOR}$1${RESET_COLOR}: $2" ;;
-    *) INFORMATION_MESSAGE=$1; warning 'Wrong number of arguments in the information function' ;;
+    *) INFORMATION_MESSAGE="$*"; warning 'Wrong number of arguments in the information function' ;;
   esac
 
   printf '%b' "$INFORMATION_MESSAGE\n"
