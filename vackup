@@ -233,13 +233,13 @@ Usage: $VACKUP [OPTIONS] COMMAND
 "Docker Volume Backup". Replicates image management commands for volumes.
 
 Commands:
-  help        Print this help page
+  help        Print this help page and exit
   export      Export a docker volume into an archive file
   import      Import a docker volume from an archive file
   all         Export/import multiple docker volumes to/from archive files
 
 Options:
-  -h, --help        Print this help page
+  -h, --help        Print this help page and exit
   -q, --quiet       Silence the outputs to STDOUT, except if the help page is
                     explicitly requested
   -v, --verbose     Verbose printing
@@ -265,7 +265,7 @@ Parameters:
                   the volume and archive extension will be assumed
 
 Options:
-  -h, --help        Print this help page
+  -h, --help        Print this help page and exit
   -p, --parents     Create parent directories for the archive file as needed
   -f, --force       Overwrite the archive file if a file already exists
   -s, --stop        Stop running containers that have the specified volume as a
@@ -292,7 +292,7 @@ Parameters:
   VOLUME_NAME     The docker volume to import
 
 Options:
-  -h, --help      Print this help page
+  -h, --help      Print this help page and exit
   -s, --stop      Stop running containers that have the specified volume as a
                   mount point before importing, and restart them after
   -P, --pause     Pause containers instead of stopping them. This option is
@@ -309,12 +309,12 @@ Usage: $VACKUP all [OPTIONS] COMMAND
 Export/import multiple docker volumes to/from archive files
 
 Commands:
-  help        Print this help page
+  help        Print this help page and exit
   export      Export multiple docker volumes into archive files
   import      Import multiple docker volumes from archive files
 
 Options:
-  -h, --help      Print this help page
+  -h, --help      Print this help page and exit
 
 Run '$VACKUP all COMMAND --help' for more information on a command.
 
@@ -335,7 +335,7 @@ Parameters:
               exported to
 
 Options:
-  -h, --help              Print this help page
+  -h, --help              Print this help page and exit
   -p, --parents           Create parent directories for the archive files as
                           needed
   -f, --force             Overwrite the archive files if a file already exists
@@ -403,7 +403,7 @@ Parameters:
                   to be imported are
 
 Options:
-  -h, --help              Print this help page
+  -h, --help              Print this help page and exit
   -s, --stop              Stop the running containers that mount a volume
                           before importing, and restart them after. Takes
                           priority over the -S, --stop-all flag
@@ -1166,7 +1166,7 @@ get_previous_exports() {
 # Exports the specified docker volume into an archive file
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help: Print the usage page
+#   -h, --help: Print the usage page and exit
 #   -p, --parents: Create parent directories for the archive file as needed
 #   -f, --force: Overwrite the archive file if a file already exists
 #   -s, --stop: Stop running containers that have the specified volume as a mount point before exporting, and restart them after
@@ -1285,7 +1285,7 @@ command_export() {
 # Imports the specified docker volume from an archive file
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help: Print the usage page
+#   -h, --help: Print the usage page and exit
 #   -s, --stop: Stop running containers that have the specified volume as a mount point before importing, and restart them after
 #   -P, --pause: Pause containers instead of stopping them.
 #                This option is valid only in conjunction with --stop
@@ -1384,7 +1384,7 @@ command_import() {
 #   Supports clustered flags, e.g. -abc instead of -a -b -c
 #   All exported archives will be named as the name of the volume and archive extension
 # Flags:
-#   -h, --help: Print the usage page
+#   -h, --help: Print the usage page and exit
 #   -p, --parents: Create parent directories for the archive files as needed
 #   -f, --force: Overwrite the archive files if a file already exists
 #   -i, --in-use: Only export volumes that are in use by at least one container
@@ -1642,7 +1642,7 @@ command_all_export() {
 #   Supports clustered flags, e.g. -abc instead of -a -b -c
 #   All imported archives will be assumed to be named as the name of the volume and archive extension
 # Flags:
-#   -h, --help: Print the usage page
+#   -h, --help: Print the usage page and exit
 #   -s, --stop: Stop the running containers that mount a volume before importing, and restart them after.
 #               Takes priority over the -S, --stop-all flag
 #   -S, --stop-all: Stop all running containers before importing, and restart them after
@@ -1746,7 +1746,7 @@ command_all_import() {
 # Command for importing/exporting all volumes
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help: Print the usage page
+#   -h, --help: Print the usage page and exit
 # Parameters:
 #   Subcommand (required): One of help, export or import.
 #                          All subsequent arguments will be forwarded to the specified subcommand
@@ -1789,7 +1789,7 @@ HOST=0
 # Argument parsing
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
-#   -h, --help: Print the usage page
+#   -h, --help: Print the usage page and exit
 #   -q, --quiet: Silence the outputs to STDOUT, except if the usage page is explicitly requested
 #   -v, --verbose: Verbose printing
 #   -H, --host: Do the export/import by running the archive program on the host instead of a container
