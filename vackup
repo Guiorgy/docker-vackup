@@ -806,7 +806,7 @@ parse_integer() {
 #   Path (required): The relative or absolute path to a file or directory
 # Return: Absolute path to the specified file or directory
 absolute_path() {
-  ABSOLUTE_PATH=$(readlink -m "$1") || error "Failed to get the full path for $1"
+  ABSOLUTE_PATH=$(readlink -f "$1") || error "Failed to get the full path for $1"
   echo "$ABSOLUTE_PATH"
 }
 
