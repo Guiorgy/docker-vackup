@@ -33,7 +33,7 @@ if [ -z "$LINENO" ]; then
 fi
 
 # Silently check if the caller command is defined
-if command -v caller 1> /dev/null 2>&1; then
+if command -v caller 1>/dev/null 2>&1; then
   CALLER=1
 else
   CALLER=0
@@ -81,7 +81,7 @@ handle_error() {
       if [ -n "$BASH" ]; then
         VACKUP_FAILURE_SHELL="$BASH"
       else
-        VACKUP_FAILURE_SHELL=$(command -v sh 2> /dev/null) || 'sh'
+        VACKUP_FAILURE_SHELL=$(command -v sh 2>/dev/null) || 'sh'
       fi
     fi
 
@@ -655,7 +655,7 @@ information() {
 }
 
 # Silently check if the tac command is defined, and define it if it doesn't
-if ! command -v tac 1> /dev/null 2>&1; then
+if ! command -v tac 1>/dev/null 2>&1; then
   # Reverses the order of lines
   tac() {
     sed '1!G;h;$!d'
@@ -903,12 +903,12 @@ volume_doesnot_exists() {
     VOLUME_NAME="$1"
   fi
 
-  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1> /dev/null 2>&1; then
+  if ! docker volume inspect --format '{{.Name}}' "$VOLUME_NAME" 1>/dev/null 2>&1; then
     if [ $ERROR -eq 1 ]; then
       error "Volume $VOLUME_NAME does not exist"
     elif [ $CREATE -eq 1 ]; then
       warning "Volume $VOLUME_NAME does not exist, creating..."
-      docker volume create "$VOLUME_NAME" 1> /dev/null || error "Failed to create volume $VOLUME_NAME"
+      docker volume create "$VOLUME_NAME" 1>/dev/null || error "Failed to create volume $VOLUME_NAME"
     else
       warning "Volume $VOLUME_NAME does not exist"
     fi
@@ -1117,10 +1117,10 @@ stop_containers() {
   if [ $# -ne 0 ]; then
     if [ $PAUSE -eq 0 ]; then
       information 'Stopping containers' "$*"
-      docker stop "$@" 1> /dev/null || error 'Failed to stop containers'
+      docker stop "$@" 1>/dev/null || error 'Failed to stop containers'
     else
       information 'Pausing containers' "$*"
-      docker container pause "$@" 1> /dev/null || error 'Failed to pause containers'
+      docker container pause "$@" 1>/dev/null || error 'Failed to pause containers'
     fi
   fi
 }
@@ -1151,10 +1151,10 @@ restart_containers() {
   if [ $# -ne 0 ]; then
     if [ $UNPAUSE -eq 0 ]; then
       information 'Restarting containers' "$*"
-      docker restart "$@" 1> /dev/null || error 'Failed to restart containers'
+      docker restart "$@" 1>/dev/null || error 'Failed to restart containers'
     else
       information 'Unpausing containers' "$*"
-      docker container unpause "$@" 1> /dev/null || error 'Failed to unpause containers'
+      docker container unpause "$@" 1>/dev/null || error 'Failed to unpause containers'
     fi
   fi
 }
