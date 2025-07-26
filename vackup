@@ -1232,6 +1232,10 @@ get_previous_exports() {
   echo "$RESULT" # Double quotes needed to preserve newlines
 }
 
+# Container mount points
+VOLUME_DATA_PATH='/volume-data'
+ARCHIVE_FILE_PARENT_PATH='/mount-volum'
+
 # Exports the specified docker volume into an archive file
 # Remark: Supports clustered flags, e.g. -abc instead of -a -b -c
 # Flags:
@@ -1336,11 +1340,13 @@ command_export() {
       error 'Failed to tar the volume'
     fi
   else
+    FILE_CONTAINER_PATH="$ARCHIVE_FILE_PARENT_PATH/$FILE_NAME"
+
     if ! docker run --rm \
-      -v "$VOLUME_NAME":/volume-data:ro \
-      -v "$DIRECTORY":/mount-volum \
+      -v "$VOLUME_NAME":"$VOLUME_DATA_PATH":ro \
+      -v "$DIRECTORY":"$ARCHIVE_FILE_PARENT_PATH" \
       busybox \
-      tar $TAR_OPTIONS /mount-volum/"$FILE_NAME" -C /volume-data .; then
+      tar $TAR_OPTIONS "$FILE_CONTAINER_PATH" -C "$VOLUME_DATA_PATH" .; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
@@ -1433,11 +1439,13 @@ command_import() {
       error 'Failed to extract the tar archive into the volume'
     fi
   else
+    FILE_CONTAINER_PATH="$ARCHIVE_FILE_PARENT_PATH/$FILE_NAME"
+
     if ! docker run --rm \
-      -v "$VOLUME_NAME":/volume-data \
-      -v "$DIRECTORY/$FILE_NAME":"/mount-volum/$FILE_NAME":ro \
+      -v "$VOLUME_NAME":"$VOLUME_DATA_PATH" \
+      -v "$DIRECTORY/$FILE_NAME":"$FILE_CONTAINER_PATH":ro \
       busybox \
-      tar $TAR_OPTIONS /mount-volum/"$FILE_NAME" -C /volume-data; then
+      tar $TAR_OPTIONS "$FILE_CONTAINER_PATH" -C "$VOLUME_DATA_PATH"; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
