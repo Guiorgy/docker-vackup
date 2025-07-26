@@ -266,13 +266,17 @@ Parameters:
                   the volume and archive extension will be assumed
 
 Options:
-  -h, --help        Print this help page and exit
-  -p, --parents     Create parent directories for the archive file as needed
-  -f, --force       Overwrite the archive file if a file already exists
-  -s, --stop        Stop running containers that have the specified volume as a
-                    mount point before exporting, and restart them after
-  -P, --pause       Pause containers instead of stopping them. This option is
-                    valid only in conjunction with --stop
+  -h, --help              Print this help page and exit
+  -p, --parents           Create parent directories for the archive file as
+                          needed
+  -f, --force             Overwrite the archive file if a file already exists
+  -s, --stop              Stop running containers that have the specified
+                          volume as a mount point before exporting, and restart
+                          them after
+  -P, --pause             Pause containers instead of stopping them. This
+                          option is valid only in conjunction with --stop
+  -o, --owner=UID[:GID]   Change the ownership of the exported archive file on
+                          Linux (may not have any effect on macOS and BSD)
 
 EOF
       ) || error "Failed to generate the usage text"
@@ -350,6 +354,8 @@ Options:
   -P, --pause             Pause containers instead of stopping them. This
                           option is valid only in conjunction with either
                           --stop or --stop_all
+  -o, --owner=UID[:GID]   Change the ownership of the exported archive files on
+                          Linux (may not have any effect on macOS and BSD)
   --exclude-containers=CONTAINERS
                           Exclude the specified containers from being
                           stopped, where CONTAINERS is a comma separated list
@@ -741,6 +747,21 @@ get_option_value() {
   OPTION="${OPTION%%=*}"
 }
 
+# Indicates whether the specified string contains only (ASCII) decimal digits
+# Parameters:
+#   Value (required): The string to be checked
+is_digits() {
+  case $# in
+    1) VALUE="$1" ;;
+    *) VALUE="$1"; warning 'Wrong number of arguments in the is_digits function' ;;
+  esac
+
+  case "$VALUE" in
+    *[!0123456789]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 # Parses a string into a base 10 integer number
 # Flags:
 #   {--negative|--non-positive|--non-negative|--positive}: The condition the parsed number must meet
@@ -878,6 +899,170 @@ append_file_if_dir() {
       fi
     ;;
   esac
+}
+
+# Find the row inside /etc/passwd where the key matches the value
+# Parameters:
+#   Key (required): One of user, uid, gid, gecos, password, home or shell
+#   Value (required): The value to search for
+# Return: The row from /etc/passwd where the key matches the value
+find_in_passwd() {
+  case $# in
+    2) KEY="$1"; VALUE="$2" ;;
+    *) KEY="$1"; VALUE="$2"; warning 'Wrong number of arguments in the find_in_passwd function' ;;
+  esac
+
+  # /etc/passwd format: USER:PASSWORD:UID:GID:GECOS:HOME:SHELL
+  case "$KEY" in
+    user) echo "$(grep "^${VALUE}:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*$" /etc/passwd 2>/dev/null)" ;;
+    uid) echo "$(grep "^[^:]*:[^:]*:${VALUE}:[^:]*:[^:]*:[^:]*:[^:]*$" /etc/passwd 2>/dev/null)" ;;
+    gid) echo "$(grep "^[^:]*:[^:]*:[^:]*:${VALUE}:[^:]*:[^:]*:[^:]*$" /etc/passwd 2>/dev/null)" ;;
+    gecos) echo "$(grep "^[^:]*:[^:]*:[^:]*:[^:]*:${VALUE}:[^:]*:[^:]*$" /etc/passwd 2>/dev/null)" ;;
+    password) echo "$(grep "^[^:]*:${VALUE}:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*$" /etc/passwd 2>/dev/null)" ;;
+    home) echo "$(grep "^[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:${VALUE}:[^:]*$" /etc/passwd 2>/dev/null)" ;;
+    shell) echo "$(grep "^[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:${VALUE}$" /etc/passwd 2>/dev/null)" ;;
+    *) error "'$KEY' is not a recognized find_in_passwd key" ;;
+  esac
+}
+
+# Find the row inside /etc/passwd where the key1 matches the value1 and get the value of key2
+# Parameters:
+#   Key1 (required): One of user, uid, gid, gecos, password, home or shell
+#   Value1 (required): The value to search for
+#   Key2 (requred): One of user, uid, group, gid, password, home or shell
+# Return: The value from key2 where the key1 matches the value1
+get_from_passwd() {
+  case $# in
+    3) KEY1="$1"; VALUE1="$2"; KEY2="$3" ;;
+    *) KEY1="$1"; VALUE1="$2"; KEY2="$3"; warning 'Wrong number of arguments in the get_from_passwd function' ;;
+  esac
+
+  if [ "$KEY1" = "$KEY2" ]; then
+    warning "The first and second keys are identical in the get_from_passwd function"
+  fi
+
+  ROW=$(find_in_passwd "$KEY1" "$VALUE1")
+
+  if [ -n "$ROW" ]; then
+    # /etc/passwd format: USER:PASSWORD:UID:GID:GECOS:HOME:SHELL
+    case "$KEY2" in
+      user) KEY2=1 ;;
+      uid) KEY2=3 ;;
+      gid) KEY2=4 ;;
+      gecos) KEY2=5 ;;
+      password) KEY2=2 ;;
+      home) KEY2=6 ;;
+      shell) KEY2=7 ;;
+      *) error "'$KEY2' is not a recognized get_from_passwd key" ;;
+    esac
+
+    echo "$ROW" | cut -d: -f$KEY2
+  fi
+}
+
+# Find the row inside /etc/group where the key matches the value
+# Remark: If the key is equal to user, multiple rows may be returned
+# Parameters:
+#   Key (required): One of group, gid, users, user or password
+#   Value (required): The value to search for
+# Return: The row from /etc/group where the key matches the value
+find_in_group() {
+  case $# in
+    2) KEY="$1"; VALUE="$2" ;;
+    *) KEY="$1"; VALUE="$2"; warning 'Wrong number of arguments in the find_in_group function' ;;
+  esac
+
+  # /etc/group format: GROUP:PASSWORD:GID:USERS
+  case "$KEY" in
+    group) echo "$(grep "^${VALUE}:[^:]*:[^:]*:[^:]*$" /etc/group 2>/dev/null)" ;;
+    gid) echo "$(grep "^[^:]*:[^:]*:${VALUE}:[^:]*$" /etc/group 2>/dev/null)" ;;
+    users) echo "$(grep "^[^:]*:[^:]*:[^:]*:${VALUE}$" /etc/group 2>/dev/null)" ;;
+    user) echo "$(grep -E "^[^:]*:[^:]*:[^:]*:${VALUE}(,|$)|^[^:]*:[^:]*:[^:]*:[^:]*,${VALUE}(,|$)" /etc/group 2>/dev/null)" ;;
+    password) echo "$(grep "^[^:]*:${VALUE}:[^:]*:[^:]*$" /etc/group 2>/dev/null)" ;;
+    *) error "'$KEY' is not a recognized find_in_group key" ;;
+  esac
+}
+
+# Find the row inside /etc/group where the key1 matches the value1 and get the value of key2
+# Parameters:
+#   Key1 (required): One of group, gid, users or password
+#   Value1 (required): The value to search for
+#   Key2 (requred): One of group, gid, users or password
+# Return: The value from key2 where the key1 matches the value1
+get_from_group() {
+  case $# in
+    3) KEY1="$1"; VALUE1="$2"; KEY2="$3" ;;
+    *) KEY1="$1"; VALUE1="$2"; KEY2="$3"; warning 'Wrong number of arguments in the get_from_group function' ;;
+  esac
+
+  if [ "$KEY1" = "$KEY2" ]; then
+    warning "The first and second keys are identical in the get_from_group function"
+  fi
+
+  if [ "$KEY1" = 'user' ]; then
+    error "'$KEY1' is not a recognized get_from_group key" ;;
+  fi
+
+  ROW=$(find_in_group "$KEY1" "$VALUE1")
+
+  if [ -n "$ROW" ]; then
+    # /etc/group format: GROUP:PASSWORD:GID:USERS
+    case "$KEY2" in
+      group) KEY2=1 ;;
+      gid) KEY2=3 ;;
+      users) KEY2=4 ;;
+      password) KEY2=2 ;;
+      *) error "'$KEY2' is not a recognized get_from_group key" ;;
+    esac
+
+    echo "$ROW" | cut -d: -f$KEY2
+  fi
+}
+
+# Converts user and group names to their IDs
+# Parameters:
+#   UserGroup (required): User and optionally group delimited by a colon character
+# Return: The user and group IDs separated by a colon character
+user_group_to_ids() {
+  case $# in
+    1) USER_GROUP="$1" ;;
+    *) USER_GROUP="$1"; warning 'Wrong number of arguments in the user_group_to_ids function' ;;
+  esac
+
+  COLONS="$(echo "$USER_GROUP" | grep -o ':' | wc -l):-0"
+  if [ "$COLONS" -gt 1 ]; then
+    warning 'More than two IDs specified for the UserGroup argument in the user_group_to_ids function'
+  fi
+
+  USER=$(echo "$USER_GROUP" | cut -d':' -f1)
+  GROUP=$(echo "$USER_GROUP" | cut -d':' -f2)
+
+  if [ -z "$USER" ]; then
+    error "'$USER' user not found"
+  elif is_digits "$USER"; then
+    USER_ID="$USER"
+  else
+    USER_ID=$(get_from_passwd user "$USER" uid)
+    if [ -z "$USER_ID" ]; then
+      error "'$USER' user not found"
+    fi
+  fi
+
+  if [ -z "$GROUP" ]; then
+    GROUP_ID=$(get_from_passwd uid "$USER_ID" gid)
+    if [ -z "$GROUP_ID" ]; then
+      error "'$USER_ID' user ID not found"
+    fi
+  elif is_digits "$GROUP"; then
+    GROUP_ID="$GROUP"
+  else
+    GROUP_ID=$(get_from_group group "$GROUP" gid)
+    if [ -z "$GROUP_ID" ]; then
+      error "'$GROUP' group not found"
+    fi
+  fi
+
+  echo "$USER_ID:$GROUP_ID"
 }
 
 # Checks if the specified docker volume exists, and prints a warning if it doesn't
@@ -1245,6 +1430,7 @@ ARCHIVE_FILE_PARENT_PATH='/mount-volum'
 #   -s, --stop: Stop running containers that have the specified volume as a mount point before exporting, and restart them after
 #   -P, --pause: Pause containers instead of stopping them.
 #                This option is valid only in conjunction with --stop
+#   -o, --owner=UID:GID: Change the ownership of the exported archive file
 # Parameters:
 #   VolumeName (required): The docker volume to export
 #   Output (optional, ./ by default): The path to the output archive file. If the path points to a directory, a file inside the said directory with the name of the volume and archive extension will be assumed
@@ -1253,6 +1439,7 @@ command_export() {
   OVERWRITE=0
   STOP=0
   PAUSE=0
+  OWNER=''
 
   while [ $# -ne 0 ]; do
     case "$1" in
@@ -1262,11 +1449,13 @@ command_export() {
 
         case "$OPTION" in
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
+          -o | --owner) error usage export "'$OPTION' requires a value" ;;
           -h | --help) print_usage --exit export ;;
           -p | --parents) PARENTS=1 ;;
           -f | --force) OVERWRITE=1 ;;
           -s | --stop) STOP=1 ;;
           -P | --pause) PAUSE=1 ;;
+          -o=* | --owner=*) get_option_value; OWNER="$VALUE" ;;
           *) error usage export "'$OPTION' is not a recognized export option" ;;
         esac
       ;;
@@ -1279,6 +1468,16 @@ command_export() {
     2) VOLUME_NAME="$1"; FILE_NAME="$2" ;;
     *) error usage export 'Wrong number of arguments' ;;
   esac
+
+  if [ -z "$OWNER" ]; then
+    OWNER="$(id -u):$(id -g)"
+  else
+    if [ "$(uname -s)" != "Linux" ]; then
+      warning "The '--owner' option is only supported on Linux"
+    fi
+
+    OWNER=$(user_group_to_ids "$OWNER")
+  fi
 
   FILE_NAME=$(append_file_if_dir "$FILE_NAME" "$VOLUME_NAME$EXTENSION")
   if [ -f "$FILE_NAME" ]; then
@@ -1346,7 +1545,7 @@ command_export() {
       -v "$VOLUME_NAME":"$VOLUME_DATA_PATH":ro \
       -v "$DIRECTORY":"$ARCHIVE_FILE_PARENT_PATH" \
       busybox \
-      /bin/ash -c 'tar '"$TAR_OPTIONS"' '"'$FILE_CONTAINER_PATH'"' -C '"'$VOLUME_DATA_PATH'"' . && chown '"'$(id -u):$(id -g)'"' '"'$FILE_CONTAINER_PATH'"; then
+      /bin/ash -c 'tar '"$TAR_OPTIONS"' '"'$FILE_CONTAINER_PATH'"' -C '"'$VOLUME_DATA_PATH'"' . && chown '"'$OWNER'"' '"'$FILE_CONTAINER_PATH'"; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
@@ -1470,6 +1669,7 @@ command_import() {
 #   -S, --stop-all: Stop all running containers before exporting, and restart them after
 #   -P, --pause: Pause containers instead of stopping them.
 #                This option is valid only in conjunction with either --stop or --stop_all
+#   -o, --owner=UID:GID: Change the ownership of the exported archive files
 #   {-d, --date|-D, --date-dir}:
 #     -d, --date: Add the current date in the yyyy-MM-dd_HH-mm-ss ISOish format to the start of the archive file names.
 #                 If the flag is passed in a second time, append the date to the end of the archive file names instead
@@ -1497,6 +1697,7 @@ command_all_export() {
   STOP=0
   STOP_ALL=0
   PAUSE=0
+  OWNER=''
   EXCLUDE_CONTAINERS=''
   EXCLUDE_VOLUMES=''
   DATE=0
@@ -1513,9 +1714,10 @@ command_all_export() {
 
         case "$OPTION" in
           -[A-Za-z][A-Za-z]*) set -- $(prefix_all - $(chars 1 "$OPTION")) "$@" ;;
-          --exclude-containers | --exclude-volumes | -k | --keep | -K | --keep-days) error usage export-all "'$OPTION' requires a value" ;;
+          -o | --owner | --exclude-containers | --exclude-volumes | -k | --keep | -K | --keep-days) error usage export-all "'$OPTION' requires a value" ;;
           -h | --help) print_usage --exit export-all ;;
           -p | --parents) PARENTS=1; ARGS="$ARGS --parents" ;;
+          -o=* | --owner=*) get_option_value; OWNER="$VALUE" ;;
           -f | --force) ARGS="$ARGS --force" ;;
           -i | --in-use) INUSE=1 ;;
           -s | --stop) STOP=1 ;;
@@ -1558,6 +1760,12 @@ command_all_export() {
     1) DIRECTORY="$1" ;;
     *) error usage export-all 'Wrong number of arguments' ;;
   esac
+
+  if [ -z "$OWNER" ]; then
+    ARGS="$ARGS --owner='$(id -u):$(id -g)'"
+  else
+    ARGS="$ARGS --owner='$(user_group_to_ids "$OWNER")'"
+  fi
 
   if [ $DATE -ne 0 ] || [ $DATE_DIR -ne 0 ]; then
     if [ $UTC -eq 1 ]; then
