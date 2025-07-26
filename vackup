@@ -1337,10 +1337,10 @@ command_export() {
     fi
   else
     if ! docker run --rm \
-      -v "$VOLUME_NAME":/vackup-volume:ro \
-      -v "$DIRECTORY":/vackup \
+      -v "$VOLUME_NAME":/volume-data:ro \
+      -v "$DIRECTORY":/mount-volum \
       busybox \
-      tar $TAR_OPTIONS /vackup/"$FILE_NAME" -C /vackup-volume .; then
+      tar $TAR_OPTIONS /mount-volum/"$FILE_NAME" -C /volume-data .; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
@@ -1434,10 +1434,10 @@ command_import() {
     fi
   else
     if ! docker run --rm \
-      -v "$VOLUME_NAME":/vackup-volume \
-      -v "$DIRECTORY/$FILE_NAME":"/vackup/$FILE_NAME":ro \
+      -v "$VOLUME_NAME":/volume-data \
+      -v "$DIRECTORY/$FILE_NAME":"/mount-volum/$FILE_NAME":ro \
       busybox \
-      tar $TAR_OPTIONS /vackup/"$FILE_NAME" -C /vackup-volume; then
+      tar $TAR_OPTIONS /mount-volum/"$FILE_NAME" -C /volume-data; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
