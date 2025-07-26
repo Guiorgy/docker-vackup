@@ -801,12 +801,20 @@ parse_integer() {
   echo $NUMBER
 }
 
+# Silently check if the realpath command is defined, and define it if it doesn't
+if ! command -v realpath 1>/dev/null 2>&1; then
+  # Fallback to cd/pwd
+  realpath() {
+    echo "$(cd "$1" && pwd)"
+  }
+fi
+
 # Determines the absolute path to a file or directory
 # Parameters:
 #   Path (required): The relative or absolute path to a file or directory
 # Return: Absolute path to the specified file or directory
 absolute_path() {
-  ABSOLUTE_PATH=$(readlink -f "$1") || error "Failed to get the full path for $1"
+  ABSOLUTE_PATH=$(realpath "$1") || error "Failed to get the full path for $1"
   echo "$ABSOLUTE_PATH"
 }
 
@@ -816,7 +824,7 @@ absolute_path() {
 # Return: Absolute path to the parent directory, or root if the input path is already root ('/')
 absolute_dirname() {
   ABSOLUTE_PATH=$(absolute_path "$1")
-  PARENT=$(dirname "$ABSOLUTE_PATH") || error "Failed to get the parent directory for $ABSOLUTE_PATH ($1)"
+  PARENT=$(dirname "$ABSOLUTE_PATH") || error "Failed to get the parent directory for '$ABSOLUTE_PATH' ($1)"
   echo "$PARENT"
 }
 
@@ -826,7 +834,7 @@ absolute_dirname() {
 # Return: The base name of the specified file or directory
 absolute_basename() {
   ABSOLUTE_PATH=$(absolute_path "$1")
-  BASENAME=$(basename "$ABSOLUTE_PATH") || error "Failed to get the base name for $ABSOLUTE_PATH ($1)"
+  BASENAME=$(basename "$ABSOLUTE_PATH") || error "Failed to get the base name for '$ABSOLUTE_PATH' ($1)"
   echo "$BASENAME"
 }
 
