@@ -1346,7 +1346,7 @@ command_export() {
       -v "$VOLUME_NAME":"$VOLUME_DATA_PATH":ro \
       -v "$DIRECTORY":"$ARCHIVE_FILE_PARENT_PATH" \
       busybox \
-      tar $TAR_OPTIONS "$FILE_CONTAINER_PATH" -C "$VOLUME_DATA_PATH" .; then
+      /bin/ash -c 'tar '"$TAR_OPTIONS"' '"'$FILE_CONTAINER_PATH'"' -C '"'$VOLUME_DATA_PATH'"' . && chown '"'$(id -u):$(id -g)'"' '"'$FILE_CONTAINER_PATH'"; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
     fi
