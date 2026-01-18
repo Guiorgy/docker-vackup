@@ -3,7 +3,7 @@ Description=Backup Docker volumes using vackup
 Wants=vackup_all.timer
 
 [Service]
-Type=exec
+Type=oneshot
 ExecStart=/usr/local/bin/vackup --quiet all export --in-use --stop --parents --date-dir --utc --keep-days=180 {PATH-TO-BACKUP-DIRECTORY}
 
 [Install]
