@@ -1548,11 +1548,20 @@ command_export() {
       -v "$DIRECTORY":"$ARCHIVE_FILE_PARENT_PATH" \
       busybox \
         /bin/ash -c ' \
-          tar '"$TAR_OPTIONS"' '"'$FILE_CONTAINER_PATH'"' -C '"'$VOLUME_DATA_PATH'"' . \
+          DU_OUTPUT=$(du -sh '"'$VOLUME_DATA_PATH'"') || exit 1; \
+          set -- $DU_OUTPUT; \
+          printf "%s" "Volume size: $1"; \
+          \
+          time -o /dev/stdout -f "Archiving '"$VOLUME_NAME"' took %e seconds" \ 
+            tar '"$TAR_OPTIONS"' '"'$FILE_CONTAINER_PATH'"' -C '"'$VOLUME_DATA_PATH'"' . \
             && ( \
               chown '"'$OWNER'"' '"'$FILE_CONTAINER_PATH'"' \
                 || printf 1>&2 "%b" "${BOLD_YELLOW_COLOR_ERR}Warning${RESET_COLOR_ERR}: Failed to change ownership of the '"$FILE_NAME"' file\n" \
             ) \
+          \
+          DU_OUTPUT=$(du -sh '"'$ARCHIVE_FILE_PARENT_PATH'"') || exit 1; \
+          set -- $DU_OUTPUT; \
+          printf "%s" "Final archive size: $1"; \
         '; then
       restart_containers $STOP_RESTART_CONTAINERS_ARGS
       error 'Failed to start busybox backup container'
