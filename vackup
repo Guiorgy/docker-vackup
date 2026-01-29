@@ -1541,7 +1541,7 @@ command_export() {
   else
     FILE_CONTAINER_PATH="$ARCHIVE_FILE_PARENT_PATH/$FILE_NAME"
 
-    if ! docker run --rm \
+    if ! docker run --rm --name vackup \
       -e BOLD_YELLOW_COLOR_ERR="$BOLD_YELLOW_COLOR_ERR" \
       -e RESET_COLOR_ERR="$RESET_COLOR_ERR" \
       -v "$VOLUME_NAME":"$VOLUME_DATA_PATH":ro \
@@ -1642,7 +1642,7 @@ command_import() {
   else
     FILE_CONTAINER_PATH="$ARCHIVE_FILE_PARENT_PATH/$FILE_NAME"
 
-    if ! docker run --rm \
+    if ! docker run --rm --name vackup \
       -v "$VOLUME_NAME":"$VOLUME_DATA_PATH" \
       -v "$DIRECTORY/$FILE_NAME":"$FILE_CONTAINER_PATH":ro \
       busybox \
